@@ -20,7 +20,7 @@ python workbench.py --enable wifi,ble,gpio      # advertise satellite-backed ins
 
 ## Capability advertisement
 
-This is the heart of the host-agnostic design (`ARCHITECTURE.md` §9). `serial`, `udp_log`, and `ota` are always available; `gdb`/`mqtt` are auto-detected (OpenOCD/Mosquitto on PATH); `wifi`/`ble`/`gpio`/`siggen` are turned on by a backend (`--enable`, or `WORKBENCH_CAPS`). Tests declare what they need and are routed only to a host that advertises it — missing capabilities become skipped tests, never hard failures.
+This is the heart of the host-agnostic design (`docs/architecture.md` §9). `serial`, `udp_log`, and `ota` are always available; `gdb`/`mqtt` are auto-detected (OpenOCD/Mosquitto on PATH); `wifi`/`ble`/`gpio`/`siggen` are turned on by a backend (`--enable`, or `WORKBENCH_CAPS`). Tests declare what they need and are routed only to a host that advertises it — missing capabilities become skipped tests, never hard failures.
 
 ## Scope
 

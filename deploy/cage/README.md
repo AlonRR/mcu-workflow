@@ -1,6 +1,6 @@
 # cage — boundary enforcement (deliverable #5)
 
-The disposable sandbox the launcher opens, with the guardrails from `ARCHITECTURE.md` Section 7 enforced **by the environment, not the agent**. The design rule: the agent should be *physically unable* to do the forbidden thing.
+The disposable sandbox the launcher opens, with the guardrails from `docs/architecture.md` Section 7 enforced **by the environment, not the agent**. The design rule: the agent should be *physically unable* to do the forbidden thing.
 
 ## What's here
 

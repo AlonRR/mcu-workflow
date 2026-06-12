@@ -1,6 +1,6 @@
 # board.yml — schema & validator
 
-This is deliverable #1 of the micro-controller workflow: the **single source of truth** for one project/target, plus a friendly validator. Scaffold, build, flash, test routing, wiring guides, and the enclosure all derive from this one file (see `ARCHITECTURE.md`, Section 3, "The board.yml contract").
+This is deliverable #1 of the micro-controller workflow: the **single source of truth** for one project/target, plus a friendly validator. Scaffold, build, flash, test routing, wiring guides, and the enclosure all derive from this one file (see `docs/architecture.md`, Section 3, "The board.yml contract").
 
 ## What's here
 

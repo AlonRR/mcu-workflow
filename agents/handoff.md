@@ -19,7 +19,7 @@ that's required.
 
 > Note: the app's auto-memory (project facts/decisions) is saved per-machine and
 > will not come along with the folder. That's why it's mirrored into this file.
-> On the new PC, just point your assistant at this folder and at `ARCHITECTURE.md`
+> On the new PC, just point your assistant at this folder and at `docs/architecture.md`
 > + this file; it can re-learn everything from here.
 
 ## What to install on the new desktop
@@ -76,7 +76,7 @@ a first bench run.
 
 ## Suggested next steps
 
-1. **Prove it on hardware**: `python launcher/up.py doctor`, flash the satellite, walk a real
+1. **Prove it on hardware**: `python src/launcher/up.py doctor`, flash the satellite, walk a real
    `board.yml` through validate → scaffold → build → flash.
 2. **Deepen the workbench** (#9) into the full instrument (RFC2217 proxy, auto-GDB, WiFi/BLE/OTA).
 3. **Package** the folders into one installable `mcuflow` so `mcuflow up/validate/scaffold` are
@@ -86,33 +86,33 @@ a first bench run.
 
 During the build session, the sandbox occasionally showed truncated copies of a few files due to a
 file-sync glitch; the authoritative files were re-written complete. If any file looks cut off when
-you open it on the new PC, it can be regenerated from `ARCHITECTURE.md` + this guide.
+you open it on the new PC, it can be regenerated from `docs/architecture.md` + this guide.
 
 ## Update — 2026-06-11 (session 2): runnable interface + simulator
 
 The workflow is now exercisable end to end **with no hardware**, and adapted to
 the real target boards (2× ESP32-C3 Super Mini):
 
-- **`board-schema/examples/board-c3.yml`** — C3 DUT config (LED=GPIO8 active-low,
+- **`examples/board-c3.yml`** — C3 DUT config (LED=GPIO8 active-low,
   BOOT=GPIO9 avoided, native-USB console, 4MB flash). Scaffolds to a chip-correct
   project (`set-target esp32c3`, `@pytest.mark.esp32c3`).
-- **`sim/`** — a behavioural simulator: `satellite/host/sim.py` emulates the
-  satellite firmware behind the real driver; `sim/dut.py` models the DUT; and
-  `sim/hil.py` runs the workbench-mediated WiFi/GPIO HIL test through the **real**
+- **`sim/`** — a behavioural simulator: `src/satellite/host/sim.py` emulates the
+  satellite firmware behind the real driver; `src/sim/dut.py` models the DUT; and
+  `src/sim/hil.py` runs the workbench-mediated WiFi/GPIO HIL test through the **real**
   workbench HTTP API.
-- **`workbench/workbench.py`** — now actually *drives* the satellite: POST
+- **`src/workbench/workbench.py`** — now actually *drives* the satellite: POST
   endpoints for `wifi.ap_start/scan/ap_stop`, `gpio.set/get`, `ping`, selectable
   with `--satellite sim|COMx`. Cross-platform serial discovery (COM* on Windows).
 - **`mcuflow`** — new `--sim` flag and `run` / `hil` / `up` / `workbench` verbs,
   so one command drives validate→scaffold→build→flash→HIL. Wrapper entry points
   in `bin/` (`mcuflow.bat` for Windows, `mcuflow` for POSIX).
-- **`launcher/up.py`** — passes through **two** boards (DUT + satellite) via
+- **`src/launcher/up.py`** — passes through **two** boards (DUT + satellite) via
   repeated `--device`/`--busid`; cross-platform serial listing.
 - **`tests/smoke.py`** — hardware-free regression (7 checks); 18-point manual
   sweep also green.
-- **`RUNBOOK-C3.md`** — step-by-step two-C3 bring-up with the sim→real swap table.
+- **`docs/runbook-c3.md`** — step-by-step two-C3 bring-up with the sim→real swap table.
 
-Try it: `python mcuflow/mcuflow.py --sim run board-schema/examples/board-c3.yml`.
+Try it: `python src/mcuflow/mcuflow.py --sim run examples/board-c3.yml`.
 
 Still hardware-gated (honest gaps): the satellite sketch is Arduino while the
 cage is ESP-IDF (flash from host with arduino-cli, or rewrite the satellite on
@@ -122,7 +122,7 @@ DUT's serial to confirm the join on-silicon is the next integration layer.
 
 ### Addendum — firmware + handoff for the real run
 
-- `satellite/firmware-idf/` — satellite rewritten on **ESP-IDF** (one toolchain
+- `src/satellite/firmware-idf/` — satellite rewritten on **ESP-IDF** (one toolchain
   builds both boards). Arduino version kept as the no-IDF fallback.
 - Scaffold now emits **real WiFi-join firmware** for wifi boards (DUT joins the
   satellite AP, prints `wifi: connected ...`); CMake gains the wifi REQUIRES.
@@ -133,7 +133,7 @@ DUT's serial to confirm the join on-silicon is the next integration layer.
 
 On-hardware verification is the remaining step (the sandbox can't compile C / reach
 USB): build+flash both C3s and run `mcuflow run board-c3.yml --port <DUT>
---workbench http://127.0.0.1:8080` per `RUNBOOK-C3.md` / `CLAUDE.md`.
+--workbench http://127.0.0.1:8080` per `docs/runbook-c3.md` / `CLAUDE.md`.
 
 ## Update — 2026-06-12 (session 3): ran it on the real two C3s
 

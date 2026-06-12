@@ -1,6 +1,6 @@
 # skills — capability skills (deliverable #10)
 
-One focused skill per slice of the workflow, coordinated by a top-level orchestrator. This is the *judgment* layer (`ARCHITECTURE.md` "Who orchestrates"): each skill teaches the agent how to drive one part via the `mcuflow` CLI or the workbench API — the deterministic mechanics live in those tools, not in the skills.
+One focused skill per slice of the workflow, coordinated by a top-level orchestrator. This is the *judgment* layer (`docs/architecture.md` "Who orchestrates"): each skill teaches the agent how to drive one part via the `mcuflow` CLI or the workbench API — the deterministic mechanics live in those tools, not in the skills.
 
 ## Shipped here
 

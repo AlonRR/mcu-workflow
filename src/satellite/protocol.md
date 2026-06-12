@@ -7,7 +7,7 @@ over **USB-serial**, 115200 baud, with a simple line protocol:
 - **Request:** one JSON object per line (`\n`-terminated): `{"cmd": "...", ...}`
 - **Response:** one JSON object per line: `{"ok": true|false, ...}` (or `"error"`)
 
-Transport-agnostic by design (`ARCHITECTURE.md` §13): USB-serial is the default;
+Transport-agnostic by design (`docs/architecture.md` §13): USB-serial is the default;
 the same line protocol can later run over TCP for a remotely-placed satellite.
 
 ## Commands

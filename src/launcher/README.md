@@ -1,6 +1,6 @@
 # launcher — `mcuflow up` (deliverable #4)
 
-The front door. One step to start work: it brings up the containerized **cage**, mounts your project, passes the connected board's USB/serial port through, and starts (or resumes) the agent inside — permissions bypassed *inside* the cage, boundary enforced *at* the wall (see `ARCHITECTURE.md`, Sections 6–7).
+The front door. One step to start work: it brings up the containerized **cage**, mounts your project, passes the connected board's USB/serial port through, and starts (or resumes) the agent inside — permissions bypassed *inside* the cage, boundary enforced *at* the wall (see `docs/architecture.md`, Sections 6–7).
 
 ## Prerequisites
 

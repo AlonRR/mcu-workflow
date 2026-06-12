@@ -6,7 +6,7 @@
 ---
 
 You are doing the real two-board hardware bring-up for this project. Read
-`CLAUDE.md` and `RUNBOOK-C3.md` first — they have the full plan and the C3
+`CLAUDE.md` and `docs/runbook-c3.md` first — they have the full plan and the C3
 gotchas. The whole loop already passes in simulation; your job is the real run.
 
 Work in this order, and **stop and show me the output at each checkpoint**:
@@ -15,20 +15,20 @@ Work in this order, and **stop and show me the output at each checkpoint**:
 
 2. Decide the run mode and tell me which:
    - **Native** if `idf.py` is on PATH (run directly), or
-   - **Caged** (preferred): `docker build -t mcuflow-cage:idf6 -f launcher/Dockerfile launcher/`,
+   - **Caged** (preferred): `docker build -t mcuflow-cage:idf6 -f src/launcher/Dockerfile launcher/`,
      set `image: mcuflow-cage:idf6` in `cage.yaml`, then
-     `python mcuflow/mcuflow.py up up --busid <B1> --busid <B2>`
+     `python src/mcuflow/mcuflow.py up up --busid <B1> --busid <B2>`
      (on Windows run `usbipd list` first; pass the two C3 bus IDs).
 
 3. Identify the boards — **don't assume which COM/ACM is which**. Flash the
-   satellite firmware (`satellite/firmware-idf/`, `idf.py set-target esp32c3`)
+   satellite firmware (`src/satellite/firmware-idf/`, `idf.py set-target esp32c3`)
    to one board, then for each candidate port start
    `mcuflow workbench --satellite <PORT>` and POST `/api/satellite/ping`. The
    port that returns `{"fw":"sat-idf-0.1"}` is the **satellite**; the other is
    the **DUT**. Report both ports.
 
 4. With the satellite confirmed and its workbench running, do the DUT loop:
-   `mcuflow run board-schema/examples/board-c3.yml --port <DUT_PORT> --workbench http://127.0.0.1:8080`
+   `mcuflow run examples/board-c3.yml --port <DUT_PORT> --workbench http://127.0.0.1:8080`
    (no `--sim`). 
 
 5. Read the **DUT serial** (`idf.py -p <DUT_PORT> monitor`) and confirm two

@@ -16,6 +16,12 @@ dependencies.lock
 # mcuflow generated projects / scratch
 build-out/
 
+# enclosure generator outputs (build123d script + previews/exports)
+*_case.py
+*_preview.stl
+*_case.stl
+*_case.step
+
 # OS
 Thumbs.db
 .DS_Store

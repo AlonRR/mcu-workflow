@@ -27,8 +27,13 @@ Each folder has its own `README.md`.
 
 ## Quick start
 
+Only Python 3.10+ needs to pre-exist — the tool installs the rest itself.
+
 ```bash
-pip install -r requirements.txt           # pyyaml + jsonschema (core)
+# The tool provisions its own prerequisites: a uv-managed .venv with the Python
+# deps (pyyaml, jsonschema, pyserial, esptool), plus usbipd-win / Docker / the
+# ESP-IDF cage image when you go to real hardware.
+python mcuflow/mcuflow.py doctor --fix
 
 # Run the WHOLE loop with no toolchain and no boards (simulation):
 python mcuflow/mcuflow.py --sim run board-schema/examples/board-c3.yml -o ./my-project
@@ -39,8 +44,10 @@ python tests/smoke.py                      # hardware-free regression check
 
 On Windows, put `bin\` on your PATH and the command is just `mcuflow ...`
 (`bin/mcuflow` on POSIX). Unified verbs: `validate scaffold build flash monitor
-test hil run up workbench env`. Add `--sim` to run build/flash/test with no
-hardware; drop it (and add `--port`/`--workbench`) for the real boards.
+test hil run up workbench doctor env`. Add `--sim` to run build/flash/test with
+no hardware; drop it (and add `--port`/`--workbench`) for the real boards. With
+no native ESP-IDF, `build` runs in the Docker cage and `flash` uses host esptool
+over the board's COM port — see `RUNBOOK-C3.md`.
 
 **Two ESP32-C3 Super Minis end to end:** see **`RUNBOOK-C3.md`** — it walks the
 sim run, the wiring, the two-board USB passthrough, and the sim-to-real swap.

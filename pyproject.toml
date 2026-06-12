@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcuflow"
+version = "0.2.0"
+description = "Contract-first microcontroller workflow: one board.yml drives scaffold, build, flash, and hardware-in-the-loop testing for ESP32 boards."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml",
+    "jsonschema",
+    "pyserial",
+    "esptool",
+]
+
+[project.scripts]
+mcuflow = "mcuflow.mcuflow:main"
+
+# src/ layout: the importable package is `mcuflow`. The other modules under src/
+# (board-schema, sim, satellite, ...) are loaded by the CLI at runtime from the
+# source tree, so an editable install (`pip install -e .`) is the supported mode.
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mcuflow*"]

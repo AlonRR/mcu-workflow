@@ -14,21 +14,46 @@ from.
 [![smoke](https://github.com/<owner>/<repo>/actions/workflows/smoke.yml/badge.svg)](../../actions/workflows/smoke.yml)
 -->
 
-## Quick start
+## Install (one line)
 
-Only **Python 3.10+** needs to pre-exist — the tool installs the rest itself.
+You don't need to install anything first — not even Python. The bootstrap
+installs **uv**, a Python, the repo, and all prerequisites, and puts `mcuflow` on
+your PATH. (Replace `OWNER/REPO` with this repository once it's on GitHub.)
+
+**Windows** — PowerShell (from `cmd`, wrap it: `powershell -c "irm … | iex"`):
+
+```powershell
+irm https://raw.githubusercontent.com/OWNER/REPO/main/install.ps1 | iex
+```
+
+**macOS / Linux / WSL / Git-Bash**:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | sh
+```
+
+Then open a new terminal:
+
+```sh
+mcuflow doctor                                  # confirm everything is green
+mcuflow --sim run examples/board-c3.yml -o ./my-project
+```
+
+The installer runs `mcuflow doctor --fix`, which provisions a project-local uv
+`.venv` (pyyaml, jsonschema, pyserial, esptool) plus — for real hardware —
+usbipd-win, Docker, and the ESP-IDF cage image. To undo it later:
+`mcuflow doctor --uninstall` (add `--purge` to also drop the ~15 GB image and
+usbipd-win; never touches Docker Desktop or uv).
+
+## Quick start (from a checkout)
+
+If you'd rather clone manually, only **Python 3.10+** must pre-exist:
 
 ```bash
-# 1. Provision prerequisites into a project-local uv .venv (pyyaml, jsonschema,
-#    pyserial, esptool) — plus usbipd-win / Docker / the ESP-IDF cage image when
-#    you go to real hardware. Nothing else needs to be installed by hand.
-python src/mcuflow/mcuflow.py doctor --fix
-
-# 2. Run the WHOLE loop with no toolchain and no boards (simulation):
+python src/mcuflow/mcuflow.py doctor --fix      # provision prerequisites (uv .venv, ...)
 python src/mcuflow/mcuflow.py --sim run examples/board-c3.yml -o ./my-project
-#    validate -> scaffold -> build -> flash -> workbench-mediated HIL, all green
-
-python tests/smoke.py        # hardware-free regression (also runs in CI)
+#   validate -> scaffold -> build -> flash -> workbench-mediated HIL, all green
+python tests/smoke.py                           # hardware-free regression (also in CI)
 ```
 
 Put `bin/` on your PATH and it's just `mcuflow ...` (`bin/mcuflow` on POSIX,
@@ -36,9 +61,6 @@ Put `bin/` on your PATH and it's just `mcuflow ...` (`bin/mcuflow` on POSIX,
 hil run up workbench doctor env`. Add `--sim` for no hardware; drop it (and add
 `--port`/`--workbench`) for real boards. With no native ESP-IDF, `build` runs in
 the Docker cage and `flash` uses host `esptool` over the board's COM port.
-
-To undo the install: `mcuflow doctor --uninstall` (add `--purge` to also drop the
-~15 GB cage image and usbipd-win; never touches Docker Desktop or uv).
 
 **Real hardware:** the two-ESP32-C3 bring-up is in
 **[docs/runbook-c3.md](docs/runbook-c3.md)**.

@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 # mcuflow - POSIX CLI entry point. Add this bin/ folder to PATH, then run `mcuflow ...`.
+# Prefers the project's uv-managed .venv interpreter; falls back to python3.
 here="$(cd "$(dirname "$0")" && pwd)"
-exec python3 "$here/../src/mcuflow/mcuflow.py" "$@"
+root="$(cd "$here/.." && pwd)"
+venv_py="$root/.venv/bin/python"
+if [ -x "$venv_py" ]; then
+  exec "$venv_py" "$root/src/mcuflow/mcuflow.py" "$@"
+fi
+exec python3 "$root/src/mcuflow/mcuflow.py" "$@"

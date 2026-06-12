@@ -11,9 +11,9 @@ CI, scripts, and the agent all go through this, so behavior never diverges.
 Verbs:
   validate <board.yml>             structure + semantic check        (#1)
   scaffold <board.yml> [-o dir]    generate an ESP-IDF project        (#3)
-  build    [--path .]              idf.py build      (or --sim)
-  flash    [--path .] [--port P]   idf.py flash      (or --sim)
-  monitor  [--path .] [--port P]   idf.py monitor (interactive)
+  build    [--path .]              build via the platform adapter    (or --sim)
+  flash    [--path .] [--port P]   flash via the platform adapter    (or --sim)
+  monitor  [--path .] [--port P]   serial monitor via the platform adapter
   test     <pyfile> [--target c]   pytest-embedded HIL run
   hil      <board.yml>             workbench-mediated HIL (sim or real)
   run      <board.yml> [-o dir]    validate->scaffold->build->flash->hil
@@ -239,11 +239,23 @@ def verb_scaffold(args):
     return emit(result, args.json, [(out + err).rstrip()])
 
 
-def _idf_verb(name, idf_args, args, interactive=False):
-    miss = _need_tool("idf.py", args.json)
+def _adapter(platform):
+    """The PlatformAdapter for `platform` (defaults to esp32). The adapter maps
+    build/flash/monitor to that toolchain's command argv; the conductor runs it.
+    This is the seam that keeps the CLI from assuming a specific processor -
+    adding a platform is a new adapter, not a CLI change (see src/adapters/)."""
+    sys.path.insert(0, str(ROOT))
+    from adapters import get_adapter
+
+    return get_adapter(platform or "esp32")
+
+
+def _run_verb(name, cmd, args, interactive=False):
+    """Run a toolchain command (the argv a PlatformAdapter returned). cmd[0] is
+    the required tool, so the missing-tool error is reported generically."""
+    miss = _need_tool(cmd[0], args.json)
     if miss is not None:
         return miss
-    cmd = ["idf.py", "-C", str(args.path)] + idf_args
     if interactive:
         rc, out, err = _run(cmd, capture=False)
         return emit({"verb": name, "ok": rc == 0, "exit_code": rc}, args.json, [])
@@ -362,10 +374,13 @@ def verb_build(args):
             "  warnings: 0   target: from sdkconfig",
         ]
         return emit(_sim_result("build", lines, bin_bytes=203808, warnings=0), args.json, lines)
-    # Native idf.py if present; otherwise build inside the cage (no USB needed).
-    if shutil.which("idf.py") is not None:
-        return _idf_verb("build", ["build"], args)
-    if _cage_available():
+    platform = getattr(args, "platform", None) or "esp32"
+    cmd = _adapter(platform).build_cmd(str(args.path))
+    # Native toolchain on the host (idf.py for esp32; cmake/west/... for others).
+    if shutil.which(cmd[0]) is not None:
+        return _run_verb("build", cmd, args)
+    # ESP-IDF has a no-host-toolchain path: build inside the Docker cage.
+    if platform == "esp32" and _cage_available():
         chip = getattr(args, "chip", None) or "esp32c3"
         rc, out, err = _cage_build(args.path, chip)
         ok = rc == 0
@@ -385,7 +400,7 @@ def verb_build(args):
             args.json,
             lines,
         )
-    return _idf_verb("build", ["build"], args)  # emits the missing-tool error
+    return _run_verb("build", cmd, args)  # emits the missing-tool error for cmd[0]
 
 
 def verb_flash(args):
@@ -397,11 +412,15 @@ def verb_flash(args):
             "  hard-reset -> running",
         ]
         return emit(_sim_result("flash", lines, port=port), args.json, lines)
-    # Native idf.py if present; otherwise flash from the host with esptool over
-    # the COM port (works for the C3's native USB-Serial/JTAG without usbipd).
-    if shutil.which("idf.py") is not None:
-        extra = (["-p", args.port] if args.port else []) + ["flash"]
-        return _idf_verb("flash", extra, args)
+    platform = getattr(args, "platform", None) or "esp32"
+    cmd = _adapter(platform).flash_cmd(str(args.path), getattr(args, "port", None))
+    # Native toolchain on the host (idf.py for esp32; openocd/picotool/... else).
+    if shutil.which(cmd[0]) is not None:
+        return _run_verb("flash", cmd, args)
+    if platform != "esp32":
+        return _run_verb("flash", cmd, args)  # missing-tool error for cmd[0]
+    # ESP-IDF fallback: flash from the host with esptool over the COM port (works
+    # for the C3's native USB-Serial/JTAG without usbipd).
     chip = getattr(args, "chip", None) or "esp32c3"
     rc, out, err = _host_flash(args.path, args.port, chip)
     ok = rc == 0
@@ -425,8 +444,9 @@ def verb_flash(args):
 
 
 def verb_monitor(args):
-    extra = (["-p", args.port] if args.port else []) + ["monitor"]
-    return _idf_verb("monitor", extra, args, interactive=True)
+    platform = getattr(args, "platform", None) or "esp32"
+    cmd = _adapter(platform).monitor_cmd(str(args.path), getattr(args, "port", None))
+    return _run_verb("monitor", cmd, args, interactive=True)
 
 
 def verb_test(args):
@@ -570,17 +590,20 @@ def verb_run(args):
     if rc != EXIT_OK:
         return finish(EXIT_FAIL)
 
+    platform = (board.get("meta") or {}).get("platform") or "esp32"
     chip = (board.get("meta") or {}).get("chip") or "esp32c3"
+    adapter = _adapter(platform)
 
-    # 3. build  (native idf.py if present; else inside the cage; no USB needed).
+    # 3. build  (native toolchain via the adapter; else, for esp32, in the cage).
+    build_cmd = adapter.build_cmd(str(out_dir))
     if args.sim:
         add("build", EXIT_OK, "[sim] build ok")
-    elif shutil.which("idf.py") is not None:
-        rc, o, e = _run(["idf.py", "-C", str(out_dir), "build"])
+    elif shutil.which(build_cmd[0]) is not None:
+        rc, o, e = _run(build_cmd)
         add("build", rc, (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
-    elif _cage_available():
+    elif platform == "esp32" and _cage_available():
         rc, o, e = _cage_build(out_dir, chip)
         add("build", rc, "[cage " + chip + "] " + (o + e).strip())
         if rc != EXIT_OK:
@@ -589,25 +612,28 @@ def verb_run(args):
         add(
             "build",
             EXIT_NOTOOL,
-            "no idf.py and no cage image (run `mcuflow doctor --fix`, or use --sim)",
+            "no " + build_cmd[0] + " toolchain (run `mcuflow doctor --fix`, or use --sim)",
         )
         return finish(EXIT_NOTOOL)
 
-    # 4. flash  (native idf.py if present; else host esptool over the COM port).
+    # 4. flash  (native toolchain via the adapter; else, for esp32, host esptool).
     port = getattr(args, "port", None)
+    flash_cmd = adapter.flash_cmd(str(out_dir), port)
     if args.sim:
         add("flash", EXIT_OK, "[sim] flash ok")
-    elif shutil.which("idf.py") is not None:
-        cmd = ["idf.py", "-C", str(out_dir)] + (["-p", port] if port else []) + ["flash"]
-        rc, o, e = _run(cmd)
+    elif shutil.which(flash_cmd[0]) is not None:
+        rc, o, e = _run(flash_cmd)
         add("flash", rc, (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
-    else:
+    elif platform == "esp32":
         rc, o, e = _host_flash(out_dir, port, chip)
         add("flash", rc, "[host esptool] " + (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
+    else:
+        add("flash", EXIT_NOTOOL, "no " + flash_cmd[0] + " on PATH for flashing")
+        return finish(EXIT_NOTOOL)
 
     # 5. hil (workbench-mediated). sim by default; real needs --workbench.
     needs_sat = (board.get("rig") or {}).get("satellite") == "required" or "wifi" in (
@@ -1204,22 +1230,25 @@ def build_parser():
     s.add_argument("-o", "--out", type=Path, default=None)
     s.set_defaults(func=verb_scaffold)
 
-    b = sub.add_parser("build", help="idf.py build (native, or in the cage, or --sim)")
+    b = sub.add_parser("build", help="build via the platform adapter (or cage, or --sim)")
     b.add_argument("--path", type=Path, default=Path("."))
+    b.add_argument("--platform", default=None, help="toolchain adapter (default esp32)")
     b.add_argument("--chip", default=None, help="target chip for a cage build (default esp32c3)")
     b.set_defaults(func=verb_build)
 
-    f = sub.add_parser("flash", help="idf.py flash (native, or host esptool, or --sim)")
+    f = sub.add_parser("flash", help="flash via the platform adapter (or host esptool, or --sim)")
     f.add_argument("--path", type=Path, default=Path("."))
     f.add_argument("--port", default=None)
+    f.add_argument("--platform", default=None, help="toolchain adapter (default esp32)")
     f.add_argument(
         "--chip", default=None, help="target chip for host esptool flashing (default esp32c3)"
     )
     f.set_defaults(func=verb_flash)
 
-    m = sub.add_parser("monitor", help="idf.py monitor (interactive)")
+    m = sub.add_parser("monitor", help="serial monitor via the platform adapter (interactive)")
     m.add_argument("--path", type=Path, default=Path("."))
     m.add_argument("--port", default=None)
+    m.add_argument("--platform", default=None, help="toolchain adapter (default esp32)")
     m.set_defaults(func=verb_monitor)
 
     t = sub.add_parser("test", help="pytest-embedded HIL run (or --sim)")

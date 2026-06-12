@@ -27,7 +27,6 @@ class SimDUT:
 
     def boot(self):
         """Emulate the chip booting and emitting its first log lines."""
-        chip = self.meta.get("chip", "esp32")
         self.serial_log = [
             "rst:0x1 (POWERON),boot:0x9",
             "I (312) cpu_start: Pro cpu start user code",

@@ -932,8 +932,9 @@ def verb_env(args):
 # --- argument parsing ------------------------------------------------------
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="mcuflow",
-                                description="Deterministic conductor for the micro-controller workflow.")
+    p = argparse.ArgumentParser(
+        prog="mcuflow",
+        description="Deterministic conductor for the micro-controller workflow.")
     p.add_argument("--json", action="store_true",
                    help="emit one JSON object instead of human text")
     p.add_argument("--sim", action="store_true",

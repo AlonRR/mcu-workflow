@@ -4,16 +4,31 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mcuflow"
-version = "0.2.0"
 description = "Contract-first microcontroller workflow: one board.yml drives scaffold, build, flash, and hardware-in-the-loop testing for ESP32 boards."
 readme = "README.md"
 requires-python = ">=3.10"
+dynamic = ["version"]                     # single-sourced from mcuflow.__version__
+authors = [{ name = "Alon A. Rabinowitz", email = "45129051+AlonRR@users.noreply.github.com" }]
+keywords = ["esp32", "esp-idf", "firmware", "hil", "embedded", "microcontroller"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Embedded Systems",
+]
 dependencies = [
     "pyyaml",
     "jsonschema",
     "pyserial",
     "esptool",
 ]
+
+[project.urls]
+# Replace OWNER/REPO once the project is on GitHub.
+Homepage = "https://github.com/OWNER/REPO"
+Repository = "https://github.com/OWNER/REPO"
+Issues = "https://github.com/OWNER/REPO/issues"
 
 [project.scripts]
 mcuflow = "mcuflow.mcuflow:main"
@@ -24,6 +39,21 @@ mcuflow = "mcuflow.mcuflow:main"
 [tool.setuptools]
 package-dir = { "" = "src" }
 
+[tool.setuptools.dynamic]
+version = { attr = "mcuflow.__version__" }
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["mcuflow*"]
+
+[tool.ruff]
+line-length = 100
+# ruff respects .gitignore, so .venv / build-out / managed_components are skipped.
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]            # pycodestyle, pyflakes, warnings, import sorting
+
+[tool.ruff.lint.per-file-ignores]
+# enclosure.py emits a build123d script as string templates; those lines are
+# intentionally wide so the *generated* code reads naturally.
+"hardware/enclosure/enclosure.py" = ["E501"]

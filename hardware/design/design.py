@@ -244,14 +244,15 @@ def cmd_power(args):
 
 
 def build_parser():
-    p = argparse.ArgumentParser(prog="design",
-                                description="Stage 0 hardware-design helpers (BOM, links, wiring, power).")
+    p = argparse.ArgumentParser(
+        prog="design",
+        description="Stage 0 hardware-design helpers (BOM, links, wiring, power).")
     p.add_argument("--json", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    l = sub.add_parser("links", help="vendor search URLs for a part")
-    l.add_argument("part")
-    l.set_defaults(func=cmd_links)
+    links_p = sub.add_parser("links", help="vendor search URLs for a part")
+    links_p.add_argument("part")
+    links_p.set_defaults(func=cmd_links)
 
     b = sub.add_parser("bom", help="bill of materials with links")
     b.add_argument("board", type=Path)

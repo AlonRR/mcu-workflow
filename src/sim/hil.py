@@ -22,12 +22,13 @@ flashing a real DUT - the assertions are identical.
 from __future__ import annotations
 
 import json
+import os as _os
+import sys as _sys
 import threading
 import time
 import urllib.request
 from http.server import ThreadingHTTPServer
 
-import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 from sim.dut import SimDUT
 
@@ -52,13 +53,11 @@ class SerialDUT:
         # The C3's native USB re-enumerates around a flash, so the port can be
         # briefly unavailable; retry opening for a few seconds.
         deadline = time.monotonic() + 10.0
-        last = None
         while True:
             try:
                 self._ser = serial.serial_for_url(port, baudrate=baud, timeout=0.3)
                 break
-            except Exception as e:
-                last = e
+            except Exception:
                 if time.monotonic() >= deadline:
                     raise
                 time.sleep(0.5)
@@ -158,7 +157,8 @@ def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test
     serial console instead of the modelled SimDUT (fully on-silicon HIL).
     """
     board = _load_board(board_path)
-    boot_gpio = boot_gpio if boot_gpio is not None else (board.get("rig") or {}).get("dut_boot_gpio")
+    if boot_gpio is None:
+        boot_gpio = (board.get("rig") or {}).get("dut_boot_gpio")
     steps = []
     srv = None
     dut = None
@@ -198,7 +198,7 @@ def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test
             dut = SimDUT(board, target_ssid=ssid, target_password=password)
 
         # 1. boot gate
-        log = dut.boot()
+        dut.boot()
         boot_ok = dut.expect(dut.boot_string)
         record("test_boots", boot_ok,
                ("DUT " + str(dut_port) + ": " if real else "")

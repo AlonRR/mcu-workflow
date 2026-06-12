@@ -12,14 +12,17 @@ You don't need a pre-existing Python — uv provides it:
 # install uv:  curl -LsSf https://astral.sh/uv/install.sh | sh   (or install.ps1 on Windows)
 uv venv
 uv pip install -e .          # deps from pyproject + the `mcuflow` command
+uv run --with pre-commit pre-commit install   # auto-run lint/format/checks on commit
 ```
 
 ## Before opening a PR
 
+`pre-commit` runs these on every commit; you can also run them by hand:
+
 ```sh
 uv run python tests/smoke.py              # hardware-free regression — must pass
 uv run --with ruff ruff check .           # lint — CI enforces this
-uv run --with ruff ruff format .          # format (encouraged)
+uv run --with ruff ruff format .          # format — CI enforces this
 ```
 
 - Keep changes small and focused; match the surrounding style.

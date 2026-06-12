@@ -1,0 +1,25 @@
+# cage.yaml - read by `mcuflow up` from the project root.
+# Tuned for the two-ESP32-C3 bring-up. Override any key with a CLI flag.
+
+# Base image works out of the box (ESP-IDF + esptool, no agent inside).
+# To seat Claude Code INSIDE the cage, build the custom image once:
+#     docker build -t mcuflow-cage:idf6 -f launcher/Dockerfile launcher/
+# then change `image:` to mcuflow-cage:idf6 and pass your key at run time
+# (the agent needs auth):  add  -e ANTHROPIC_API_KEY=...  via your own wrapper,
+# or simpler: run Claude Code on the HOST and use the cage only to build/flash.
+image: espressif/idf:release-v6.0
+container: mcuflow-cage
+agent: "bash"          # base image: drop into a shell. (Set to the agent cmd
+                       # only when using the custom image that has it installed.)
+
+mount_to: /work
+
+# Boundary (enforced at the cage wall - ARCHITECTURE.md Section 7).
+cap_drop_all: true
+no_new_privileges: true
+non_root: true
+
+# Egress allowlist (deliverable #7). Leave blank for a first bench run; set to
+# route the agent through the allowlisting proxy when you harden it.
+network: ""
+https_proxy: ""

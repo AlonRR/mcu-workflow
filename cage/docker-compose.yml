@@ -1,0 +1,42 @@
+# Cage + boundary enforcement (deliverable #5) - realizes ARCHITECTURE.md S7.
+#
+# The cage sits on an INTERNAL docker network with no route to the internet.
+# Its only way out is the egress proxy, which allows a fixed host set. So the
+# egress allowlist is enforced by the network topology, not by the agent.
+services:
+
+  egress-proxy:
+    build: ./proxy
+    networks:
+      - cage-net      # reachable by the cage
+      - outbound      # the proxy (and only the proxy) can reach the internet
+    restart: unless-stopped
+
+  cage:
+    # Use the hardened cage image (../launcher/Dockerfile) or espressif/idf.
+    image: espressif/idf:release-v6.0
+    depends_on: [egress-proxy]
+    working_dir: /work
+    volumes:
+      - ../:/work:rw            # project workspace (the only writable mount)
+    environment:
+      HTTP_PROXY: "http://egress-proxy:8888"
+      HTTPS_PROXY: "http://egress-proxy:8888"
+      NO_PROXY: "localhost,127.0.0.1,egress-proxy"
+    networks:
+      - cage-net                # NO 'outbound' here: no direct internet
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    # Pass a board through when flashing locally (edit to your device):
+    # devices:
+    #   - "/dev/ttyACM0:/dev/ttyACM0"
+    # group_add: [dialout]
+    command: ["bash", "-lc", "claude --dangerously-skip-permissions || bash"]
+    stdin_open: true
+    tty: true
+
+networks:
+  cage-net:
+    internal: true     # <-- no external connectivity for anything on this net
+  outbound: {}

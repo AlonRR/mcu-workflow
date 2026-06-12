@@ -1,0 +1,10 @@
+# Egress allowlist (host regex). Only these are reachable from the cage.
+# Add a line to permit a new host; everything not listed is denied.
+(^|\.)components\.espressif\.com$
+(^|\.)dl\.espressif\.com$
+(^|\.)github\.com$
+(^|\.)githubusercontent\.com$
+(^|\.)pypi\.org$
+(^|\.)pythonhosted\.org$
+(^|\.)mcp\.espressif\.com$
+(^|\.)registry\.npmjs\.org$

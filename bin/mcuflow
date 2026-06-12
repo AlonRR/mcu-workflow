@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # mcuflow - POSIX CLI entry point. Add this bin/ folder to PATH, then run `mcuflow ...`.
 here="$(cd "$(dirname "$0")" && pwd)"
-exec python3 "$here/../mcuflow/mcuflow.py" "$@"
+exec python3 "$here/../src/mcuflow/mcuflow.py" "$@"

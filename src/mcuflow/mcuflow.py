@@ -40,7 +40,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent  # repo root: siblings board-schema/, project-template/
+ROOT = HERE.parent          # src/: the code root (board-schema/, sim/, ... live here)
+REPO_ROOT = ROOT.parent     # the repository root (.venv, build-out/, cage.yaml live here)
 
 
 def _augment_path():
@@ -70,7 +71,7 @@ _augment_path()
 # tool re-execs itself into the venv's interpreter when one exists.
 
 def _venv_dir():
-    return ROOT / ".venv"
+    return REPO_ROOT / ".venv"
 
 
 def _venv_python(venv=None):
@@ -439,7 +440,7 @@ def verb_run(args):
     # 2. scaffold
     board = _read_board(args.board)
     project = (board.get("meta") or {}).get("project", "project")
-    out_dir = Path(args.out) if args.out else (ROOT / "build-out" / project)
+    out_dir = Path(args.out) if args.out else (REPO_ROOT / "build-out" / project)
     st = _scaffold_path()
     rc, o, e = _run([sys.executable, str(st), str(args.board), "-o", str(out_dir)])
     add("scaffold", rc, (o + e).strip())
@@ -690,7 +691,7 @@ def _cage_image():
     img = "espressif/idf:release-v6.0"
     try:
         import yaml  # type: ignore
-        data = yaml.safe_load((ROOT / "cage.yaml").read_text(encoding="utf-8")) or {}
+        data = yaml.safe_load((REPO_ROOT / "cage.yaml").read_text(encoding="utf-8")) or {}
         img = data.get("image") or img
     except Exception:
         pass
@@ -787,8 +788,8 @@ def _doctor_uninstall(purge, host_is_windows):
         log.append(_rm_path(_venv_dir()))
 
     # 3. Build artifacts (all regenerable).
-    for rel in ("build-out",
-                "satellite/firmware-idf/build",
+    log.append(_rm_path(REPO_ROOT / "build-out"))
+    for rel in ("satellite/firmware-idf/build",
                 "satellite/firmware-idf/managed_components",
                 "satellite/firmware-idf/dependencies.lock",
                 "satellite/firmware-idf/sdkconfig"):

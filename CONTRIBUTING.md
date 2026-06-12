@@ -1,0 +1,34 @@
+# Contributing
+
+Thanks for your interest! `board.yml` is the contract everything derives from,
+and the `mcuflow` CLI is the deterministic conductor — see the
+[README](README.md) and [docs/architecture.md](docs/architecture.md).
+
+## Setup
+
+You don't need a pre-existing Python — uv provides it:
+
+```sh
+# install uv:  curl -LsSf https://astral.sh/uv/install.sh | sh   (or install.ps1 on Windows)
+uv venv
+uv pip install -e .          # deps from pyproject + the `mcuflow` command
+```
+
+## Before opening a PR
+
+```sh
+uv run python tests/smoke.py              # hardware-free regression — must pass
+uv run --with ruff ruff check .           # lint — CI enforces this
+uv run --with ruff ruff format .          # format (encouraged)
+```
+
+- Keep changes small and focused; match the surrounding style.
+- Update `docs/` and the relevant module `README.md` when behavior changes.
+- Hardware-specific changes can't run in CI — say how you verified them on a board.
+- Conventional, standard project layout is preferred over ad-hoc structure.
+
+## Layout
+
+Runtime code lives in `src/`, human docs in `docs/`, AI-agent material in
+`agents/`, and Stage-0 hardware helpers in `hardware/`. See the layout map in the
+README.

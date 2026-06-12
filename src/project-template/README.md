@@ -4,12 +4,12 @@ Turns a `board.yml` (deliverable #1) into a buildable ESP-IDF project. This is t
 
 ## Use
 
+Via the conductor (deps come from the project `.venv`; see the root README — no
+pre-existing Python needed):
+
 ```bash
-pip install pyyaml
-# validate first (recommended):
-python ../board-schema/validate.py my-board.yml
-# then scaffold:
-python scaffold.py my-board.yml -o ./my-project
+mcuflow validate my-board.yml          # validate first (recommended)
+mcuflow scaffold my-board.yml -o ./my-project
 ```
 
 ## What it generates

@@ -45,16 +45,22 @@ usbipd-win, Docker, and the ESP-IDF cage image. To undo it later:
 `mcuflow doctor --uninstall` (add `--purge` to also drop the ~15 GB image and
 usbipd-win; never touches Docker Desktop or uv).
 
-## Quick start (from a checkout)
+## Run from a checkout
 
-If you'd rather clone manually, only **Python 3.10+** must pre-exist:
+Cloned it yourself? You **still don't need a pre-existing Python** — uv provides
+one. Install uv (one line), then let it run the tool:
 
-```bash
-python src/mcuflow/mcuflow.py doctor --fix      # provision prerequisites (uv .venv, ...)
-python src/mcuflow/mcuflow.py --sim run examples/board-c3.yml -o ./my-project
-#   validate -> scaffold -> build -> flash -> workbench-mediated HIL, all green
-python tests/smoke.py                           # hardware-free regression (also in CI)
+```sh
+# install uv  (macOS/Linux/WSL/Git-Bash:)  curl -LsSf https://astral.sh/uv/install.sh | sh
+#             (Windows PowerShell:)         irm https://astral.sh/uv/install.ps1 | iex
+
+uv run --no-project python src/mcuflow/mcuflow.py doctor --fix   # uv brings Python + makes the .venv
+mcuflow --sim run examples/board-c3.yml -o ./my-project          # after --fix, bin/ uses the .venv
+python tests/smoke.py                                            # hardware-free regression (also in CI)
 ```
+
+(If you *already* have Python 3.10+ on PATH you can skip uv and just run
+`python src/mcuflow/mcuflow.py ...` directly — the tool builds its `.venv` either way.)
 
 Put `bin/` on your PATH and it's just `mcuflow ...` (`bin/mcuflow` on POSIX,
 `bin\mcuflow.bat` on Windows). Verbs: `validate scaffold build flash monitor test

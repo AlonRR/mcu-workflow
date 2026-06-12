@@ -4,12 +4,14 @@
 
 ## Use
 
+After install (see the root README — no pre-existing Python needed), `mcuflow`
+is on PATH and runs under the project's uv `.venv`. From the repo root:
+
 ```bash
-pip install pyyaml jsonschema
-python mcuflow.py validate ../examples/board.yml
-python mcuflow.py scaffold ../examples/board.yml -o ./my-project
-python mcuflow.py env doctor
-python mcuflow.py --json validate my-board.yml      # machine-readable
+mcuflow validate examples/board-c3.yml
+mcuflow scaffold examples/board-c3.yml -o ./my-project
+mcuflow doctor
+mcuflow --json validate examples/board-c3.yml      # machine-readable
 ```
 
 ## Verbs

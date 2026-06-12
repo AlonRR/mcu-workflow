@@ -11,12 +11,12 @@ This is Phase 0: independent of the firmware loop and useful on its own.
 ## Use (the deterministic helpers)
 
 ```bash
-pip install pyyaml
-python design.py links BME280              # vendor search URLs for a part
-python design.py bom    board.yml          # parts list with links
-python design.py wiring board.yml          # module-pin -> board-pin guide
-python design.py power  board.yml          # rough power budget
-python design.py --json power board.yml    # machine-readable
+# uv runs it with no pre-installed Python (pyyaml is the only dep):
+uv run --no-project --with pyyaml -- python design.py links BME280   # vendor search URLs
+uv run --no-project --with pyyaml -- python design.py bom    board.yml  # parts list + links
+uv run --no-project --with pyyaml -- python design.py wiring board.yml  # module-pin -> board-pin
+uv run --no-project --with pyyaml -- python design.py power  board.yml  # rough power budget
+uv run --no-project --with pyyaml -- python design.py --json power board.yml  # machine-readable
 ```
 
 ## What's deterministic vs the agent's job

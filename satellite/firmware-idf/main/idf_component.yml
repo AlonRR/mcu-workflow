@@ -1,0 +1,6 @@
+# Managed dependencies for the satellite component.
+# ESP-IDF v6.0 removed cJSON from the core components (the old `json` component);
+# it now lives in the ESP Component Registry, so we pull it in here. The build
+# resolves this automatically; no `json` entry in REQUIRES is needed anymore.
+dependencies:
+  espressif/cjson: "^1.7.18"

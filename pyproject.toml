@@ -24,6 +24,9 @@ dependencies = [
     "esptool",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "pre-commit"]
+
 [project.urls]
 # Replace OWNER/REPO once the project is on GitHub.
 Homepage = "https://github.com/OWNER/REPO"
@@ -45,6 +48,9 @@ version = { attr = "mcuflow.__version__" }
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["mcuflow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100

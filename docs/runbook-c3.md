@@ -37,18 +37,19 @@ the serial link) is stubbed. `python tests/smoke.py` runs the full regression.
 **The tool installs its own prerequisites.** Just run:
 
 ```
-mcuflow doctor --fix      # pip deps + usbipd-win + Docker(if absent) + cage image
+mcuflow doctor --fix      # uv .venv deps + usbipd-win + Docker(if absent) + cage image
 mcuflow doctor            # re-check: should read "readiness: ok"
 ```
 
-`--fix` pip-installs pyyaml/jsonschema/pyserial, `winget`-installs **usbipd-win**
-(USB→WSL2) and **Docker Desktop** if it is missing, and `docker pull`s the
-ESP-IDF cage image so build/flash needs no host toolchain. The cage launcher has
-the same self-install: `mcuflow up doctor --fix`.
+`--fix` installs the Python deps (pyyaml/jsonschema/pyserial/esptool) into a
+uv-managed `.venv`, `winget`-installs **usbipd-win** (USB→WSL2) and **Docker
+Desktop** if it is missing, and `docker pull`s the ESP-IDF cage image so
+build/flash needs no host toolchain. The cage launcher has the same self-install:
+`mcuflow up doctor --fix`.
 
-Only Python 3.10+ must pre-exist (to run `mcuflow` at all). Everything else the
-tool provisions. `usbipd bind` needs a one-time elevated prompt the first time
-you attach a board.
+**Nothing needs to pre-exist — not even Python.** The one-line installer brings
+**uv**, which provides Python; the tool provisions everything else. `usbipd bind`
+needs a one-time elevated prompt the first time you attach a board.
 
 Toolchains:
 - **DUT** builds with **ESP-IDF v6.0** — provided by the cage image

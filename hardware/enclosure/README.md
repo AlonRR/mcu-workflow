@@ -9,12 +9,12 @@ Turns the `enclosure:` section of `board.yml` into a 3D-printable case.
 ## Use
 
 ```bash
-pip install pyyaml                 # for the generator itself
-python enclosure.py board.yml -o ./case
-# then, with build123d + OCP CAD Viewer installed:
-pip install build123d ocp_vscode
-#   open case/<project>_case.py in VS Code (OCP viewer auto-previews), or:
-python case/<project>_case.py     # exports <project>_case.stl / .step
+# uv runs it with no pre-installed Python (pyyaml is the generator's only dep):
+uv run --no-project --with pyyaml -- python enclosure.py board.yml -o ./case
+# then export the model (build123d + the OCP CAD Viewer are heavier, optional deps):
+uv run --no-project --with build123d --with ocp_vscode -- python case/<project>_case.py
+#   ...or open case/<project>_case.py in VS Code (OCP viewer auto-previews).
+#   exports <project>_case.stl / .step
 ```
 
 ## Print-friendly defaults

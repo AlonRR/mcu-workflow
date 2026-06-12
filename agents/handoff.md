@@ -24,8 +24,10 @@ that's required.
 
 ## What to install on the new desktop
 
-Core (needed to run the Python tools):
-- **Python 3.10+** and `pip install -r requirements.txt` (pyyaml, jsonschema).
+Core: **nothing needs to pre-exist — not even Python.** The one-line installer
+(or `mcuflow doctor --fix`) bootstraps **uv**, a standalone binary that provides
+Python; the deps (pyyaml, jsonschema, pyserial, esptool) install into a
+uv-managed project `.venv`.
 
 Per-capability (install when you use that piece):
 - **Docker Desktop + WSL2** — for the launcher/cage (you already have both).

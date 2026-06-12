@@ -13,8 +13,10 @@ This is deliverable #1 of the micro-controller workflow: the **single source of 
 ## Use
 
 ```bash
-pip install -r requirements.txt          # pyyaml + jsonschema
-python validate.py examples/board.yml    # validate a file
+# pyyaml + jsonschema come from the project's uv .venv (see the root README).
+# To run the validator standalone with uv — no pre-installed Python needed:
+uv run --no-project --with pyyaml --with jsonschema \
+    python validate.py ../../examples/board.yml
 ```
 
 Exit codes are a stable contract for scripting and CI:

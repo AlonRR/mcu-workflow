@@ -21,6 +21,10 @@ All notable changes are documented here. The format follows
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,
   `deploy/`, with examples at the top level.
+- The CLI no longer assumes ESP at the command layer: `build`/`flash`/`monitor`/
+  `run` go through the platform adapter (`get_adapter(meta.platform)`), and
+  `scaffold` dispatches by platform. ESP-IDF remains the only implementation, but
+  adding a platform is now a contained adapter + generator (no CLI changes).
 
 ## [0.2.0]
 

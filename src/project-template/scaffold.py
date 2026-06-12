@@ -379,17 +379,14 @@ def gen_readme(data):
     )
 
 
-def scaffold(board_path, out_dir):
-    data = _load_yaml(board_path)
-    if "meta" not in data or "project" not in data["meta"]:
-        _die("board.yml needs meta.project (run the validator first).")
+def _scaffold_esp_idf(data, out_dir):
     project = data["meta"]["project"]
     buses = classify_pins(data.get("pins"))
     deps = collect_deps(data)
     needs_wifi = "wifi" in ((data.get("test") or {}).get("needs") or [])
 
     out = Path(out_dir)
-    print("Scaffolding project '" + project + "' into " + str(out))
+    print("Scaffolding ESP-IDF project '" + project + "' into " + str(out))
     _write(out / "CMakeLists.txt", gen_top_cmake(project))
     _write(out / "sdkconfig.defaults", gen_sdkconfig(data))
     _write(out / "main" / "CMakeLists.txt", gen_main_cmake(needs_wifi, buses))
@@ -405,6 +402,29 @@ def scaffold(board_path, out_dir):
         + " pin group(s)."
     )
     return 0
+
+
+# meta.platform -> project generator. Adding a platform later is a new entry here
+# (plus its adapter in src/adapters/); nothing else in the workflow changes.
+_GENERATORS = {"esp32": _scaffold_esp_idf}
+
+
+def scaffold(board_path, out_dir):
+    data = _load_yaml(board_path)
+    if "meta" not in data or "project" not in data["meta"]:
+        _die("board.yml needs meta.project (run the validator first).")
+    platform = data["meta"].get("platform", "esp32")
+    gen = _GENERATORS.get(platform)
+    if gen is None:
+        _die(
+            "no scaffold generator for platform '"
+            + platform
+            + "' yet (implemented: "
+            + ", ".join(sorted(_GENERATORS))
+            + "). Register one in scaffold.py to add support.",
+            code=2,
+        )
+    return gen(data, out_dir)
 
 
 def main(argv=None):

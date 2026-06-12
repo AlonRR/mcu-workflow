@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install core deps
-        run: pip install pyyaml jsonschema
+      - name: Install (editable, from pyproject)
+        run: pip install -e .
       - name: Run smoke test
         run: python tests/smoke.py

@@ -48,19 +48,21 @@ usbipd-win; never touches Docker Desktop or uv).
 ## Run from a checkout
 
 Cloned it yourself? You **still don't need a pre-existing Python** — uv provides
-one. Install uv (one line), then let it run the tool:
+one. The project is a standard `pyproject.toml` package, so an editable install
+pulls the dependencies and creates the `mcuflow` command in one step:
 
 ```sh
 # install uv  (macOS/Linux/WSL/Git-Bash:)  curl -LsSf https://astral.sh/uv/install.sh | sh
 #             (Windows PowerShell:)         irm https://astral.sh/uv/install.ps1 | iex
 
-uv run --no-project python src/mcuflow/mcuflow.py doctor --fix   # uv brings Python + makes the .venv
-mcuflow --sim run examples/board-c3.yml -o ./my-project          # after --fix, bin/ uses the .venv
-python tests/smoke.py                                            # hardware-free regression (also in CI)
+uv venv                                  # make a .venv (uv supplies Python)
+uv pip install -e .                      # deps from pyproject + the `mcuflow` console script
+uv run mcuflow --sim run examples/board-c3.yml -o ./my-project
+uv run python tests/smoke.py             # hardware-free regression (also in CI)
 ```
 
-(If you *already* have Python 3.10+ on PATH you can skip uv and just run
-`python src/mcuflow/mcuflow.py ...` directly — the tool builds its `.venv` either way.)
+`mcuflow doctor --fix` does exactly this `uv pip install -e .` for you, plus the
+hardware prerequisites. (Already have Python 3.10+? `pip install -e .` works too.)
 
 Put `bin/` on your PATH and it's just `mcuflow ...` (`bin/mcuflow` on POSIX,
 `bin\mcuflow.bat` on Windows). Verbs: `validate scaffold build flash monitor test
@@ -92,6 +94,7 @@ tests/          smoke.py — hardware-free regression
 docs/           human documentation  (see docs/README.md)
 agents/         material for AI coding agents  (see agents/README.md)
 CLAUDE.md       brief auto-loaded by Claude Code (kept at root by convention)
+pyproject.toml  package metadata + dependencies (the single source of truth)
 cage.yaml       the launcher's cage configuration
 ```
 

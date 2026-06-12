@@ -555,11 +555,10 @@ def _have_module(name):
 # command. Each installer returns (ok, log_line). Nothing here needs the caller
 # to hand-install anything; pip/winget/docker do the work.
 
-# The Python deps the tool needs, installed into the uv-managed .venv.
-#   import-name -> distribution name (for status display).
+# The Python deps the tool needs (declared in pyproject.toml; this map is only
+# for the doctor status display).  import-name -> distribution name.
 _PY_DEPS = {"yaml": "pyyaml", "jsonschema": "jsonschema", "serial": "pyserial",
             "esptool": "esptool"}
-_VENV_DISTS = ["pyyaml", "jsonschema", "pyserial", "esptool"]
 
 # host tool -> winget package id (Windows only).
 _WINGET_IDS = {"usbipd": "dorssel.usbipd-win", "docker": "Docker.DockerDesktop"}
@@ -588,11 +587,14 @@ def _ensure_venv(uv_argv):
     return False, "venv create FAILED\n" + (out + err).strip()
 
 
-def _uv_pip_install(uv_argv, dists):
+def _uv_install_project(uv_argv):
+    """Editable-install the project (and its declared dependencies) into the
+    .venv. pyproject.toml is the single source of truth for the deps, and this
+    also creates the `mcuflow` console script."""
     vpy = _venv_python()
-    cmd = uv_argv + ["pip", "install", "--python", str(vpy), "--upgrade"] + list(dists)
+    cmd = uv_argv + ["pip", "install", "--python", str(vpy), "-e", str(REPO_ROOT)]
     rc, out, err = _run(cmd)
-    return rc == 0, ("uv pip install " + " ".join(dists) + " -> .venv: "
+    return rc == 0, ("uv pip install -e . -> .venv: "
                      + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip()))
 
 
@@ -702,17 +704,18 @@ def _doctor_fix(host_is_windows):
     """Install everything the tool needs; return a list of log lines."""
     log = []
 
-    # 1. Python deps into a uv-managed project .venv (not global site-packages):
-    #    pyyaml, jsonschema, pyserial, and esptool (so the host can flash boards
-    #    over their COM port without a native ESP-IDF install). mcuflow re-execs
-    #    itself into this .venv on every run.
+    # 1. Editable-install the project into a uv-managed .venv (not global
+    #    site-packages). Deps come from pyproject.toml (pyyaml, jsonschema,
+    #    pyserial, esptool - the last so the host can flash boards over their COM
+    #    port without a native ESP-IDF install), and this also creates the
+    #    `mcuflow` console script. mcuflow re-execs into this .venv on every run.
     uv_argv, line = _ensure_uv()
     log.append(line)
     if uv_argv:
         ok, line = _ensure_venv(uv_argv)
         log.append(line)
         if ok:
-            ok, line = _uv_pip_install(uv_argv, _VENV_DISTS)
+            ok, line = _uv_install_project(uv_argv)
             log.append(line)
     else:
         log.append("python deps: skipped (uv unavailable)")

@@ -29,6 +29,7 @@ Exit codes (stable contract):
   2    usage / bad input
   127  a required external tool (idf.py / pytest) is not installed
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,8 +41,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent          # src/: the code root (board-schema/, sim/, ... live here)
-REPO_ROOT = ROOT.parent     # the repository root (.venv, build-out/, cage.yaml live here)
+ROOT = HERE.parent  # src/: the code root (board-schema/, sim/, ... live here)
+REPO_ROOT = ROOT.parent  # the repository root (.venv, build-out/, cage.yaml live here)
 
 
 def _augment_path():
@@ -54,8 +55,10 @@ def _augment_path():
     extra = []
     if os.name == "nt":
         pf = os.environ.get("ProgramFiles", r"C:\Program Files")
-        extra += [os.path.join(pf, "usbipd-win"),
-                  os.path.join(pf, "Docker", "Docker", "resources", "bin")]
+        extra += [
+            os.path.join(pf, "usbipd-win"),
+            os.path.join(pf, "Docker", "Docker", "resources", "bin"),
+        ]
     for d in extra:
         if d and os.path.isdir(d) and d not in os.environ.get("PATH", ""):
             os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
@@ -69,6 +72,7 @@ _augment_path()
 # .venv created by uv - not in global site-packages. So that `python
 # mcuflow/mcuflow.py ...` works no matter which interpreter launches it, the
 # tool re-execs itself into the venv's interpreter when one exists.
+
 
 def _venv_dir():
     return REPO_ROOT / ".venv"
@@ -106,9 +110,9 @@ def _maybe_reexec_into_venv():
     # stdio, and propagates the true exit code on every platform.
     env = dict(os.environ)
     env["MCUFLOW_NO_REEXEC"] = "1"  # guard against loops
-    proc = subprocess.run([str(vpy), os.path.abspath(__file__)] + sys.argv[1:],
-                          env=env)
+    proc = subprocess.run([str(vpy), os.path.abspath(__file__)] + sys.argv[1:], env=env)
     sys.exit(proc.returncode)
+
 
 EXIT_OK = 0
 EXIT_FAIL = 1
@@ -117,13 +121,11 @@ EXIT_NOTOOL = 127
 
 
 def _validator_path() -> Path:
-    return Path(os.environ.get("MCUFLOW_VALIDATOR",
-                               ROOT / "board-schema" / "validate.py"))
+    return Path(os.environ.get("MCUFLOW_VALIDATOR", ROOT / "board-schema" / "validate.py"))
 
 
 def _scaffold_path() -> Path:
-    return Path(os.environ.get("MCUFLOW_SCAFFOLD",
-                               ROOT / "project-template" / "scaffold.py"))
+    return Path(os.environ.get("MCUFLOW_SCAFFOLD", ROOT / "project-template" / "scaffold.py"))
 
 
 def emit(result: dict, as_json: bool, human_lines=None) -> int:
@@ -131,7 +133,7 @@ def emit(result: dict, as_json: bool, human_lines=None) -> int:
     if as_json:
         print(json.dumps(result))
     else:
-        for line in (human_lines or []):
+        for line in human_lines or []:
             print(line)
     return int(result.get("exit_code", EXIT_OK))
 
@@ -139,7 +141,8 @@ def emit(result: dict, as_json: bool, human_lines=None) -> int:
 def _run(cmd, capture=True, cwd=None):
     """Run a subprocess; return (rc, stdout, stderr)."""
     proc = subprocess.run(
-        cmd, cwd=cwd,
+        cmd,
+        cwd=cwd,
         stdout=subprocess.PIPE if capture else None,
         stderr=subprocess.PIPE if capture else None,
         text=True,
@@ -157,10 +160,14 @@ def _need_tool(name, as_json):
             "missing_tool": name,
             "detail": name + " not found on PATH. Run `mcuflow env doctor`.",
         }
-        emit(result, as_json, [
-            "x " + name + " is not installed / not on PATH.",
-            "  This verb needs it. Try: mcuflow env doctor",
-        ])
+        emit(
+            result,
+            as_json,
+            [
+                "x " + name + " is not installed / not on PATH.",
+                "  This verb needs it. Try: mcuflow env doctor",
+            ],
+        )
         return EXIT_NOTOOL
     return None
 
@@ -169,6 +176,7 @@ def _read_board(path):
     """Best-effort load of board.yml for project name / rig info."""
     try:
         import yaml  # type: ignore
+
         return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     except Exception:
         return {}
@@ -176,34 +184,58 @@ def _read_board(path):
 
 # --- verbs -----------------------------------------------------------------
 
+
 def verb_validate(args):
     tool = _validator_path()
     if not tool.exists():
-        return emit({"verb": "validate", "ok": False, "exit_code": EXIT_USAGE,
-                     "detail": "validator not found at " + str(tool)},
-                    args.json, ["x validator not found at " + str(tool)])
+        return emit(
+            {
+                "verb": "validate",
+                "ok": False,
+                "exit_code": EXIT_USAGE,
+                "detail": "validator not found at " + str(tool),
+            },
+            args.json,
+            ["x validator not found at " + str(tool)],
+        )
     rc, out, err = _run([sys.executable, str(tool), str(args.board)])
     ok = rc == 0
-    result = {"verb": "validate", "ok": ok, "exit_code": rc,
-              "board": str(args.board), "detail": (out + err).strip()}
+    result = {
+        "verb": "validate",
+        "ok": ok,
+        "exit_code": rc,
+        "board": str(args.board),
+        "detail": (out + err).strip(),
+    }
     return emit(result, args.json, [(out + err).rstrip()])
 
 
 def verb_scaffold(args):
     tool = _scaffold_path()
     if not tool.exists():
-        return emit({"verb": "scaffold", "ok": False, "exit_code": EXIT_USAGE,
-                     "detail": "scaffold tool not found at " + str(tool)},
-                    args.json, ["x scaffold tool not found at " + str(tool)])
+        return emit(
+            {
+                "verb": "scaffold",
+                "ok": False,
+                "exit_code": EXIT_USAGE,
+                "detail": "scaffold tool not found at " + str(tool),
+            },
+            args.json,
+            ["x scaffold tool not found at " + str(tool)],
+        )
     cmd = [sys.executable, str(tool), str(args.board)]
     if args.out:
         cmd += ["-o", str(args.out)]
     rc, out, err = _run(cmd)
     ok = rc == 0
-    result = {"verb": "scaffold", "ok": ok, "exit_code": rc,
-              "board": str(args.board),
-              "out": str(args.out) if args.out else None,
-              "detail": (out + err).strip()}
+    result = {
+        "verb": "scaffold",
+        "ok": ok,
+        "exit_code": rc,
+        "board": str(args.board),
+        "out": str(args.out) if args.out else None,
+        "detail": (out + err).strip(),
+    }
     return emit(result, args.json, [(out + err).rstrip()])
 
 
@@ -217,9 +249,11 @@ def _idf_verb(name, idf_args, args, interactive=False):
         return emit({"verb": name, "ok": rc == 0, "exit_code": rc}, args.json, [])
     rc, out, err = _run(cmd)
     ok = rc == 0
-    return emit({"verb": name, "ok": ok, "exit_code": rc,
-                 "detail": (out + err).strip()},
-                args.json, [(out + err).rstrip()])
+    return emit(
+        {"verb": name, "ok": ok, "exit_code": rc, "detail": (out + err).strip()},
+        args.json,
+        [(out + err).rstrip()],
+    )
 
 
 def _sim_result(verb, lines, **extra):
@@ -237,6 +271,7 @@ def _sim_result(verb, lines, **extra):
 # USB bridge for the C3's native USB-Serial/JTAG, which shows up on the host as
 # a plain COM port that esptool/pyserial can drive directly.
 
+
 def _cage_available():
     """True if we can build in the cage (docker up + image pulled)."""
     if shutil.which("docker") is None or not _docker_running():
@@ -250,16 +285,36 @@ def _cage_shell(shell_cmd, project_dir):
     The image entrypoint sources the ESP-IDF env before exec, so `idf.py` is on
     PATH inside the shell."""
     mount = str(Path(project_dir).resolve())
-    cmd = ["docker", "run", "--rm", "-v", mount + ":/work", "-w", "/work",
-           _cage_image(), "bash", "-c", shell_cmd]
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        mount + ":/work",
+        "-w",
+        "/work",
+        _cage_image(),
+        "bash",
+        "-c",
+        shell_cmd,
+    ]
     return _run(cmd)
 
 
 def _idf_in_cage(idf_args, project_dir):
     """Run a single `idf.py <idf_args>` inside the cage image."""
     mount = str(Path(project_dir).resolve())
-    cmd = ["docker", "run", "--rm", "-v", mount + ":/work", "-w", "/work",
-           _cage_image(), "idf.py"] + list(idf_args)
+    cmd = [
+        "docker",
+        "run",
+        "--rm",
+        "-v",
+        mount + ":/work",
+        "-w",
+        "/work",
+        _cage_image(),
+        "idf.py",
+    ] + list(idf_args)
     return _run(cmd)
 
 
@@ -281,8 +336,7 @@ def _host_flash(project_dir, port, chip):
     build_dir = Path(project_dir) / "build"
     fa_path = build_dir / "flasher_args.json"
     if not fa_path.exists():
-        return 1, "", ("flasher_args.json not in " + str(build_dir)
-                       + " - build the project first")
+        return 1, "", ("flasher_args.json not in " + str(build_dir) + " - build the project first")
     try:
         fa = json.loads(fa_path.read_text(encoding="utf-8"))
     except Exception as e:
@@ -296,18 +350,18 @@ def _host_flash(project_dir, port, chip):
     cmd = [sys.executable, "-m", "esptool", "--chip", chip]
     if port:
         cmd += ["-p", port]
-    cmd += ["--before", "default_reset", "--after", "hard_reset",
-            "write_flash"] + pairs
+    cmd += ["--before", "default_reset", "--after", "hard_reset", "write_flash"] + pairs
     return _run(cmd)
 
 
 def verb_build(args):
     if args.sim:
-        lines = ["[sim] build ok (no toolchain invoked)",
-                 "  binary : build/app.bin  (simulated 0x31a20 bytes)",
-                 "  warnings: 0   target: from sdkconfig"]
-        return emit(_sim_result("build", lines, bin_bytes=203808, warnings=0),
-                    args.json, lines)
+        lines = [
+            "[sim] build ok (no toolchain invoked)",
+            "  binary : build/app.bin  (simulated 0x31a20 bytes)",
+            "  warnings: 0   target: from sdkconfig",
+        ]
+        return emit(_sim_result("build", lines, bin_bytes=203808, warnings=0), args.json, lines)
     # Native idf.py if present; otherwise build inside the cage (no USB needed).
     if shutil.which("idf.py") is not None:
         return _idf_verb("build", ["build"], args)
@@ -315,19 +369,33 @@ def verb_build(args):
         chip = getattr(args, "chip", None) or "esp32c3"
         rc, out, err = _cage_build(args.path, chip)
         ok = rc == 0
-        lines = ["[cage] idf.py build (" + _cage_image() + ", target " + chip + ")",
-                 (out + err).rstrip()]
-        return emit({"verb": "build", "ok": ok, "exit_code": rc, "cage": True,
-                     "chip": chip, "detail": (out + err).strip()}, args.json, lines)
+        lines = [
+            "[cage] idf.py build (" + _cage_image() + ", target " + chip + ")",
+            (out + err).rstrip(),
+        ]
+        return emit(
+            {
+                "verb": "build",
+                "ok": ok,
+                "exit_code": rc,
+                "cage": True,
+                "chip": chip,
+                "detail": (out + err).strip(),
+            },
+            args.json,
+            lines,
+        )
     return _idf_verb("build", ["build"], args)  # emits the missing-tool error
 
 
 def verb_flash(args):
     if args.sim:
         port = args.port or "(sim)"
-        lines = ["[sim] flash ok on port " + port,
-                 "  wrote app.bin @ 0x10000  (simulated)",
-                 "  hard-reset -> running"]
+        lines = [
+            "[sim] flash ok on port " + port,
+            "  wrote app.bin @ 0x10000  (simulated)",
+            "  hard-reset -> running",
+        ]
         return emit(_sim_result("flash", lines, port=port), args.json, lines)
     # Native idf.py if present; otherwise flash from the host with esptool over
     # the COM port (works for the C3's native USB-Serial/JTAG without usbipd).
@@ -337,11 +405,23 @@ def verb_flash(args):
     chip = getattr(args, "chip", None) or "esp32c3"
     rc, out, err = _host_flash(args.path, args.port, chip)
     ok = rc == 0
-    lines = ["[host] esptool write_flash (chip " + chip + ", port "
-             + str(args.port) + ")", (out + err).rstrip()]
-    return emit({"verb": "flash", "ok": ok, "exit_code": rc, "host_esptool": True,
-                 "chip": chip, "port": args.port, "detail": (out + err).strip()},
-                args.json, lines)
+    lines = [
+        "[host] esptool write_flash (chip " + chip + ", port " + str(args.port) + ")",
+        (out + err).rstrip(),
+    ]
+    return emit(
+        {
+            "verb": "flash",
+            "ok": ok,
+            "exit_code": rc,
+            "host_esptool": True,
+            "chip": chip,
+            "port": args.port,
+            "detail": (out + err).strip(),
+        },
+        args.json,
+        lines,
+    )
 
 
 def verb_monitor(args):
@@ -362,9 +442,17 @@ def verb_test(args):
     cmd += [str(args.pyfile)]
     rc, out, err = _run(cmd)
     ok = rc == 0
-    return emit({"verb": "test", "ok": ok, "exit_code": rc,
-                 "target": args.target, "detail": (out + err).strip()},
-                args.json, [(out + err).rstrip()])
+    return emit(
+        {
+            "verb": "test",
+            "ok": ok,
+            "exit_code": rc,
+            "target": args.target,
+            "detail": (out + err).strip(),
+        },
+        args.json,
+        [(out + err).rstrip()],
+    )
 
 
 def verb_hil(args, board=None):
@@ -374,23 +462,45 @@ def verb_hil(args, board=None):
     try:
         from sim.hil import run_hil
     except Exception as e:
-        return emit({"verb": "hil", "ok": False, "exit_code": EXIT_FAIL,
-                     "detail": "could not load sim harness: " + str(e)},
-                    args.json, ["x could not load sim harness: " + str(e)])
+        return emit(
+            {
+                "verb": "hil",
+                "ok": False,
+                "exit_code": EXIT_FAIL,
+                "detail": "could not load sim harness: " + str(e),
+            },
+            args.json,
+            ["x could not load sim harness: " + str(e)],
+        )
     satellite = getattr(args, "satellite", "sim") or "sim"
     wb = getattr(args, "workbench", None)
     try:
         rep = run_hil(str(board), satellite=satellite, workbench_base=wb)
     except Exception as e:
-        return emit({"verb": "hil", "ok": False, "exit_code": EXIT_FAIL,
-                     "detail": "hil run failed: " + str(e)},
-                    args.json, ["x hil run failed: " + str(e)])
+        return emit(
+            {
+                "verb": "hil",
+                "ok": False,
+                "exit_code": EXIT_FAIL,
+                "detail": "hil run failed: " + str(e),
+            },
+            args.json,
+            ["x hil run failed: " + str(e)],
+        )
     rc = EXIT_OK if rep["ok"] else EXIT_FAIL
-    lines = ["HIL run (" + ("sim satellite" if satellite == "sim" else satellite)
-             + ")  " + str(rep["passed"]) + "/" + str(rep["total"]) + " steps passed:"]
+    lines = [
+        "HIL run ("
+        + ("sim satellite" if satellite == "sim" else satellite)
+        + ")  "
+        + str(rep["passed"])
+        + "/"
+        + str(rep["total"])
+        + " steps passed:"
+    ]
     for s in rep["steps"]:
-        lines.append("  [" + ("PASS" if s["ok"] else "FAIL") + "] " + s["step"]
-                     + " - " + s["detail"])
+        lines.append(
+            "  [" + ("PASS" if s["ok"] else "FAIL") + "] " + s["step"] + " - " + s["detail"]
+        )
     if rep.get("serial_log"):
         lines.append("  device serial:")
         for ln in rep["serial_log"]:
@@ -405,18 +515,31 @@ def verb_run(args):
     stages = []
 
     def add(name, rc, detail):
-        stages.append({"stage": name, "ok": rc == EXIT_OK,
-                       "exit_code": rc, "detail": detail})
+        stages.append({"stage": name, "ok": rc == EXIT_OK, "exit_code": rc, "detail": detail})
         return rc
 
     def finish(code):
         passed = sum(1 for s in stages if s["ok"])
-        out = {"verb": "run", "ok": code == EXIT_OK, "exit_code": code,
-               "board": str(args.board), "sim": args.sim,
-               "passed": passed, "total": len(stages), "stages": stages}
-        lines = ["mcuflow run " + ("[sim] " if args.sim else "")
-                 + str(args.board) + "  -> " + str(passed) + "/"
-                 + str(len(stages)) + " stages ok:"]
+        out = {
+            "verb": "run",
+            "ok": code == EXIT_OK,
+            "exit_code": code,
+            "board": str(args.board),
+            "sim": args.sim,
+            "passed": passed,
+            "total": len(stages),
+            "stages": stages,
+        }
+        lines = [
+            "mcuflow run "
+            + ("[sim] " if args.sim else "")
+            + str(args.board)
+            + "  -> "
+            + str(passed)
+            + "/"
+            + str(len(stages))
+            + " stages ok:"
+        ]
         for s in stages:
             head = "  [" + ("ok  " if s["ok"] else "FAIL") + "] " + s["stage"]
             lines.append(head)
@@ -463,8 +586,11 @@ def verb_run(args):
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
     else:
-        add("build", EXIT_NOTOOL, "no idf.py and no cage image (run "
-            "`mcuflow doctor --fix`, or use --sim)")
+        add(
+            "build",
+            EXIT_NOTOOL,
+            "no idf.py and no cage image (run `mcuflow doctor --fix`, or use --sim)",
+        )
         return finish(EXIT_NOTOOL)
 
     # 4. flash  (native idf.py if present; else host esptool over the COM port).
@@ -484,21 +610,26 @@ def verb_run(args):
             return finish(EXIT_FAIL)
 
     # 5. hil (workbench-mediated). sim by default; real needs --workbench.
-    needs_sat = ((board.get("rig") or {}).get("satellite") == "required"
-                 or "wifi" in ((board.get("test") or {}).get("needs") or []))
+    needs_sat = (board.get("rig") or {}).get("satellite") == "required" or "wifi" in (
+        (board.get("test") or {}).get("needs") or []
+    )
     if args.sim or needs_sat:
         sys.path.insert(0, str(ROOT))
         try:
             from sim.hil import run_hil
+
             satellite = "sim" if args.sim else (getattr(args, "satellite", None) or "sim")
             wb = getattr(args, "workbench", None)
             # Real run (not --sim, real workbench, a DUT port): assert against the
             # actual DUT serial instead of the modelled SimDUT.
             dut_port = None if args.sim else (port if wb else None)
-            rep = run_hil(str(args.board), satellite=satellite, workbench_base=wb,
-                          dut_port=dut_port)
-            detail = "\n".join("[" + ("PASS" if s["ok"] else "FAIL") + "] "
-                               + s["step"] + " - " + s["detail"] for s in rep["steps"])
+            rep = run_hil(
+                str(args.board), satellite=satellite, workbench_base=wb, dut_port=dut_port
+            )
+            detail = "\n".join(
+                "[" + ("PASS" if s["ok"] else "FAIL") + "] " + s["step"] + " - " + s["detail"]
+                for s in rep["steps"]
+            )
             for ln in (rep.get("serial_log") or [])[-8:]:
                 detail += "\n   | " + ln
             add("hil", EXIT_OK if rep["ok"] else EXIT_FAIL, detail)
@@ -513,6 +644,7 @@ def verb_run(args):
 
 def _load_sibling(modname, relpath):
     import importlib.util
+
     spec = importlib.util.spec_from_file_location(modname, str(ROOT / relpath))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -535,15 +667,18 @@ def _list_serial_ports():
     if os.name == "nt":
         try:
             from serial.tools import list_ports  # pyserial
+
             return [pt.device for pt in list_ports.comports()]
         except Exception:
             return []
     import glob
+
     return sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
 
 
 def _have_module(name):
     import importlib.util
+
     try:
         return importlib.util.find_spec(name) is not None
     except Exception:
@@ -557,8 +692,12 @@ def _have_module(name):
 
 # The Python deps the tool needs (declared in pyproject.toml; this map is only
 # for the doctor status display).  import-name -> distribution name.
-_PY_DEPS = {"yaml": "pyyaml", "jsonschema": "jsonschema", "serial": "pyserial",
-            "esptool": "esptool"}
+_PY_DEPS = {
+    "yaml": "pyyaml",
+    "jsonschema": "jsonschema",
+    "serial": "pyserial",
+    "esptool": "esptool",
+}
 
 # host tool -> winget package id (Windows only).
 _WINGET_IDS = {"usbipd": "dorssel.usbipd-win", "docker": "Docker.DockerDesktop"}
@@ -594,8 +733,9 @@ def _uv_install_project(uv_argv):
     vpy = _venv_python()
     cmd = uv_argv + ["pip", "install", "--python", str(vpy), "-e", str(REPO_ROOT)]
     rc, out, err = _run(cmd)
-    return rc == 0, ("uv pip install -e . -> .venv: "
-                     + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip()))
+    return rc == 0, (
+        "uv pip install -e . -> .venv: " + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip())
+    )
 
 
 def _module_status(names):
@@ -607,9 +747,11 @@ def _module_status(names):
     except Exception:
         in_venv = False
     if vpy.exists() and not in_venv:
-        code = ("import importlib.util,json;"
-                "print(json.dumps({m: importlib.util.find_spec(m) is not None "
-                "for m in " + repr(list(names)) + "}))")
+        code = (
+            "import importlib.util,json;"
+            "print(json.dumps({m: importlib.util.find_spec(m) is not None "
+            "for m in " + repr(list(names)) + "}))"
+        )
         rc, out, _e = _run([str(vpy), "-c", code])
         if rc == 0 and out.strip():
             try:
@@ -622,18 +764,24 @@ def _module_status(names):
 def _winget_install(pkg_id):
     if shutil.which("winget") is None:
         return False, "winget not on PATH; cannot auto-install " + pkg_id
-    cmd = ["winget", "install", "--id", pkg_id, "-e", "--silent",
-           "--accept-source-agreements", "--accept-package-agreements",
-           "--disable-interactivity"]
+    cmd = [
+        "winget",
+        "install",
+        "--id",
+        pkg_id,
+        "-e",
+        "--silent",
+        "--accept-source-agreements",
+        "--accept-package-agreements",
+        "--disable-interactivity",
+    ]
     rc, out, err = _run(cmd)
-    blob = (out + err)
+    blob = out + err
     # winget returns non-zero when the package is already installed; treat that
     # (and "no applicable upgrade") as success so --fix is idempotent.
-    already = ("already installed" in blob.lower()
-               or "no available upgrade" in blob.lower())
+    already = "already installed" in blob.lower() or "no available upgrade" in blob.lower()
     ok = rc == 0 or already
-    return ok, ("winget " + pkg_id + ": "
-                + ("ok" if ok else "FAILED\n" + blob.strip()))
+    return ok, ("winget " + pkg_id + ": " + ("ok" if ok else "FAILED\n" + blob.strip()))
 
 
 def _docker_running():
@@ -658,8 +806,7 @@ def _ensure_docker_running(timeout_s=180):
         exe = next((c for c in candidates if os.path.exists(c)), None)
         if exe:
             try:
-                subprocess.Popen([exe], stdout=subprocess.DEVNULL,
-                                 stderr=subprocess.DEVNULL)
+                subprocess.Popen([exe], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             except Exception as e:
                 return False, "docker engine: could not launch Desktop (" + str(e) + ")"
         else:
@@ -667,25 +814,33 @@ def _ensure_docker_running(timeout_s=180):
     else:
         _run(["systemctl", "start", "docker"])
     import time
+
     waited = 0
     while waited < timeout_s:
         if _docker_running():
             return True, "docker engine: started (waited " + str(waited) + "s)"
         time.sleep(5)
         waited += 5
-    return False, ("docker engine: not ready after " + str(timeout_s)
-                   + "s (start Docker Desktop manually, then re-run --fix)")
+    return False, (
+        "docker engine: not ready after "
+        + str(timeout_s)
+        + "s (start Docker Desktop manually, then re-run --fix)"
+    )
 
 
 def _docker_pull(image):
     if shutil.which("docker") is None:
         return False, "docker not present; skipping image pull (" + image + ")"
     if not _docker_running():
-        return False, ("docker engine not running; skipping image pull (" + image
-                       + "). Start Docker Desktop and re-run `mcuflow doctor --fix`.")
+        return False, (
+            "docker engine not running; skipping image pull ("
+            + image
+            + "). Start Docker Desktop and re-run `mcuflow doctor --fix`."
+        )
     rc, out, err = _run(["docker", "pull", image])
-    return rc == 0, ("docker pull " + image + ": "
-                     + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip()))
+    return rc == 0, (
+        "docker pull " + image + ": " + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip())
+    )
 
 
 def _cage_image():
@@ -693,6 +848,7 @@ def _cage_image():
     img = "espressif/idf:release-v6.0"
     try:
         import yaml  # type: ignore
+
         data = yaml.safe_load((REPO_ROOT / "cage.yaml").read_text(encoding="utf-8")) or {}
         img = data.get("image") or img
     except Exception:
@@ -733,8 +889,10 @@ def _doctor_fix(host_is_windows):
             ok, line = _winget_install(_WINGET_IDS["docker"])
             log.append(line + "  (a reboot/WSL2 start may be needed before first cage)")
         else:
-            log.append("docker missing: install via your package manager "
-                       "(e.g. `apt install docker.io` or Docker Desktop)")
+            log.append(
+                "docker missing: install via your package manager "
+                "(e.g. `apt install docker.io` or Docker Desktop)"
+            )
     else:
         log.append("docker: already present")
 
@@ -754,6 +912,7 @@ def _doctor_fix(host_is_windows):
 def _rm_path(path):
     """Remove a file or directory tree; return a log line."""
     import shutil as _sh
+
     p = Path(path)
     rel = str(p)
     if not p.exists():
@@ -780,22 +939,28 @@ def _doctor_uninstall(purge, host_is_windows):
     # 1. The cage container (if any).
     if shutil.which("docker") is not None:
         rc, out, _e = _run(["docker", "rm", "-f", "mcuflow-cage"])
-        log.append("cage container 'mcuflow-cage': "
-                   + ("removed" if rc == 0 and out.strip() else "not present"))
+        log.append(
+            "cage container 'mcuflow-cage': "
+            + ("removed" if rc == 0 and out.strip() else "not present")
+        )
 
     # 2. The uv-managed .venv - but not if we are running from it.
     if _same_path(sys.executable, _venv_python()):
-        log.append(".venv: SKIPPED - mcuflow is running from it. Re-run with the "
-                   "system python: `python mcuflow/mcuflow.py doctor --uninstall`")
+        log.append(
+            ".venv: SKIPPED - mcuflow is running from it. Re-run with the "
+            "system python: `python mcuflow/mcuflow.py doctor --uninstall`"
+        )
     else:
         log.append(_rm_path(_venv_dir()))
 
     # 3. Build artifacts (all regenerable).
     log.append(_rm_path(REPO_ROOT / "build-out"))
-    for rel in ("satellite/firmware-idf/build",
-                "satellite/firmware-idf/managed_components",
-                "satellite/firmware-idf/dependencies.lock",
-                "satellite/firmware-idf/sdkconfig"):
+    for rel in (
+        "satellite/firmware-idf/build",
+        "satellite/firmware-idf/managed_components",
+        "satellite/firmware-idf/dependencies.lock",
+        "satellite/firmware-idf/sdkconfig",
+    ):
         log.append(_rm_path(ROOT / rel))
 
     # 4. --purge: the big image and the system USB tool.
@@ -803,16 +968,39 @@ def _doctor_uninstall(purge, host_is_windows):
     if purge:
         if shutil.which("docker") is not None:
             rc, out, err = _run(["docker", "rmi", img])
-            log.append("cage image " + img + ": "
-                       + ("removed (~15GB reclaimed)" if rc == 0
-                          else "not removed (" + (out + err).strip().splitlines()[-1] + ")"
-                          if (out + err).strip() else "not present"))
+            log.append(
+                "cage image "
+                + img
+                + ": "
+                + (
+                    "removed (~15GB reclaimed)"
+                    if rc == 0
+                    else "not removed (" + (out + err).strip().splitlines()[-1] + ")"
+                    if (out + err).strip()
+                    else "not present"
+                )
+            )
         if host_is_windows and shutil.which("usbipd") is not None:
-            rc, out, err = _run(["winget", "uninstall", "--id", _WINGET_IDS["usbipd"],
-                                 "-e", "--silent", "--disable-interactivity",
-                                 "--accept-source-agreements"])
-            log.append("usbipd-win: " + ("uninstalled" if rc == 0
-                       else "uninstall may need an elevation prompt - approve it"))
+            rc, out, err = _run(
+                [
+                    "winget",
+                    "uninstall",
+                    "--id",
+                    _WINGET_IDS["usbipd"],
+                    "-e",
+                    "--silent",
+                    "--disable-interactivity",
+                    "--accept-source-agreements",
+                ]
+            )
+            log.append(
+                "usbipd-win: "
+                + (
+                    "uninstalled"
+                    if rc == 0
+                    else "uninstall may need an elevation prompt - approve it"
+                )
+            )
     else:
         kept = "the " + img + " image (~15GB)"
         if host_is_windows:
@@ -831,21 +1019,36 @@ def verb_doctor(args):
     image), then re-checks and reports. With --uninstall it reverses that.
     """
     if getattr(args, "uninstall", False):
-        ulog = _doctor_uninstall(purge=getattr(args, "purge", False),
-                                 host_is_windows=(os.name == "nt"))
-        lines = ["mcuflow doctor --uninstall"
-                 + (" --purge" if getattr(args, "purge", False) else "") + ":"]
+        ulog = _doctor_uninstall(
+            purge=getattr(args, "purge", False), host_is_windows=(os.name == "nt")
+        )
+        lines = [
+            "mcuflow doctor --uninstall"
+            + (" --purge" if getattr(args, "purge", False) else "")
+            + ":"
+        ]
         lines += ["  " + ln for ln in ulog]
-        return emit({"verb": "doctor", "action": "uninstall", "ok": True,
-                     "exit_code": EXIT_OK, "purge": getattr(args, "purge", False),
-                     "log": ulog}, args.json, lines)
+        return emit(
+            {
+                "verb": "doctor",
+                "action": "uninstall",
+                "ok": True,
+                "exit_code": EXIT_OK,
+                "purge": getattr(args, "purge", False),
+                "log": ulog,
+            },
+            args.json,
+            lines,
+        )
 
     fix_log = []
     if getattr(args, "fix", False):
         fix_log = _doctor_fix(host_is_windows=(os.name == "nt"))
 
-    tools = {t: shutil.which(t) for t in
-             ["idf.py", "esptool", "pytest", "cmake", "ninja", "git", "docker"]}
+    tools = {
+        t: shutil.which(t)
+        for t in ["idf.py", "esptool", "pytest", "cmake", "ninja", "git", "docker"]
+    }
     # Python deps (incl. esptool) live in the .venv - check there, not just PATH.
     mods = _module_status(["yaml", "jsonschema", "serial", "esptool"])
     ports = _list_serial_ports()
@@ -855,8 +1058,10 @@ def verb_doctor(args):
         sys.path.insert(0, str(ROOT))
         try:
             from satellite.host.satellite_driver import Satellite
+
             if args.satellite == "sim":
                 from satellite.host.sim import SimSatelliteTransport
+
                 s = Satellite(SimSatelliteTransport())
             else:
                 s = Satellite.open_serial(args.satellite)
@@ -876,46 +1081,90 @@ def verb_doctor(args):
                 lines.append("    " + sub)
     lines.append("  python deps:")
     for m in ("yaml", "jsonschema"):
-        lines.append("    [" + ("ok " if mods[m] else "-- ") + "] " + m
-                     + ("" if mods[m] else "  (run: mcuflow doctor --fix)"))
-    lines.append("    [" + ("ok " if mods["serial"] else "-- ") + "] pyserial"
-                 + ("" if mods["serial"] else "  (needed for real serial / COM discovery)"))
-    lines.append("    [" + ("ok " if mods.get("esptool") else "-- ") + "] esptool"
-                 + (" (.venv)" if mods.get("esptool") else "  (host flashing)"))
+        lines.append(
+            "    ["
+            + ("ok " if mods[m] else "-- ")
+            + "] "
+            + m
+            + ("" if mods[m] else "  (run: mcuflow doctor --fix)")
+        )
+    lines.append(
+        "    ["
+        + ("ok " if mods["serial"] else "-- ")
+        + "] pyserial"
+        + ("" if mods["serial"] else "  (needed for real serial / COM discovery)")
+    )
+    lines.append(
+        "    ["
+        + ("ok " if mods.get("esptool") else "-- ")
+        + "] esptool"
+        + (" (.venv)" if mods.get("esptool") else "  (host flashing)")
+    )
     lines.append("  build toolchain:")
     for t in ("idf.py", "cmake", "ninja"):
-        lines.append("    [" + ("ok " if tools[t] else "-- ") + "] " + t
-                     + (("  " + tools[t]) if tools[t] else "  (missing)"))
+        lines.append(
+            "    ["
+            + ("ok " if tools[t] else "-- ")
+            + "] "
+            + t
+            + (("  " + tools[t]) if tools[t] else "  (missing)")
+        )
     if not tools["idf.py"]:
-        lines.append("    note: no native ESP-IDF - use the cage: "
-                     + ("docker present" if tools["docker"] else "docker NOT found"))
+        lines.append(
+            "    note: no native ESP-IDF - use the cage: "
+            + ("docker present" if tools["docker"] else "docker NOT found")
+        )
     lines.append("  serial ports (" + str(len(ports)) + "):")
     for prt in ports:
         lines.append("    - " + prt)
     if not ports:
-        lines.append("    (none - plug the boards in; on Windows install pyserial "
-                     "and check Device Manager / `usbipd list`)")
+        lines.append(
+            "    (none - plug the boards in; on Windows install pyserial "
+            "and check Device Manager / `usbipd list`)"
+        )
     if sat is not None:
-        lines.append("  satellite (" + str(args.satellite) + "): "
-                     + ("ok " + json.dumps(sat) if sat.get("ok")
-                        else "FAIL " + json.dumps(sat)))
+        lines.append(
+            "  satellite ("
+            + str(args.satellite)
+            + "): "
+            + ("ok " + json.dumps(sat) if sat.get("ok") else "FAIL " + json.dumps(sat))
+        )
     if code != EXIT_OK and not getattr(args, "fix", False):
-        lines.append("hint: run `mcuflow doctor --fix` to let the tool install "
-                     "the missing prerequisites for you.")
+        lines.append(
+            "hint: run `mcuflow doctor --fix` to let the tool install "
+            "the missing prerequisites for you."
+        )
     lines.append("readiness: " + ("ok" if code == EXIT_OK else "issues above"))
 
-    return emit({"verb": "doctor", "ok": code == EXIT_OK, "exit_code": code,
-                 "tools": tools, "modules": mods, "ports": ports,
-                 "satellite": sat, "fix_log": fix_log}, args.json, lines)
+    return emit(
+        {
+            "verb": "doctor",
+            "ok": code == EXIT_OK,
+            "exit_code": code,
+            "tools": tools,
+            "modules": mods,
+            "ports": ports,
+            "satellite": sat,
+            "fix_log": fix_log,
+        },
+        args.json,
+        lines,
+    )
 
 
 def verb_env(args):
     if args.action != "doctor":
-        return emit({"verb": "env", "ok": False, "exit_code": EXIT_USAGE,
-                     "detail": "unknown env action: " + str(args.action)},
-                    args.json, ["x unknown env action: " + str(args.action)])
-    tools = ["idf.py", "esptool.py", "esptool", "pytest", "python3", "git",
-             "cmake", "ninja"]
+        return emit(
+            {
+                "verb": "env",
+                "ok": False,
+                "exit_code": EXIT_USAGE,
+                "detail": "unknown env action: " + str(args.action),
+            },
+            args.json,
+            ["x unknown env action: " + str(args.action)],
+        )
+    tools = ["idf.py", "esptool.py", "esptool", "pytest", "python3", "git", "cmake", "ninja"]
     found = {t: shutil.which(t) for t in tools}
     ok = bool(found["idf.py"])
     lines = ["Toolchain check:"]
@@ -924,21 +1173,26 @@ def verb_env(args):
         lines.append("  [" + mark + "] " + t + (("  " + found[t]) if found[t] else "  (missing)"))
     lines.append("build-ready: " + ("yes" if ok else "no (idf.py missing)"))
     lines.append("note: `--sim` runs build/flash/test with no toolchain at all.")
-    return emit({"verb": "env", "ok": ok, "exit_code": EXIT_OK,
-                 "tools": found, "build_ready": ok},
-                args.json, lines)
+    return emit(
+        {"verb": "env", "ok": ok, "exit_code": EXIT_OK, "tools": found, "build_ready": ok},
+        args.json,
+        lines,
+    )
 
 
 # --- argument parsing ------------------------------------------------------
 
+
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="mcuflow",
-        description="Deterministic conductor for the micro-controller workflow.")
-    p.add_argument("--json", action="store_true",
-                   help="emit one JSON object instead of human text")
-    p.add_argument("--sim", action="store_true",
-                   help="simulate build/flash/test (no toolchain or hardware needed)")
+        prog="mcuflow", description="Deterministic conductor for the micro-controller workflow."
+    )
+    p.add_argument("--json", action="store_true", help="emit one JSON object instead of human text")
+    p.add_argument(
+        "--sim",
+        action="store_true",
+        help="simulate build/flash/test (no toolchain or hardware needed)",
+    )
     sub = p.add_subparsers(dest="verb", required=True)
 
     v = sub.add_parser("validate", help="check a board.yml")
@@ -952,15 +1206,15 @@ def build_parser():
 
     b = sub.add_parser("build", help="idf.py build (native, or in the cage, or --sim)")
     b.add_argument("--path", type=Path, default=Path("."))
-    b.add_argument("--chip", default=None,
-                   help="target chip for a cage build (default esp32c3)")
+    b.add_argument("--chip", default=None, help="target chip for a cage build (default esp32c3)")
     b.set_defaults(func=verb_build)
 
     f = sub.add_parser("flash", help="idf.py flash (native, or host esptool, or --sim)")
     f.add_argument("--path", type=Path, default=Path("."))
     f.add_argument("--port", default=None)
-    f.add_argument("--chip", default=None,
-                   help="target chip for host esptool flashing (default esp32c3)")
+    f.add_argument(
+        "--chip", default=None, help="target chip for host esptool flashing (default esp32c3)"
+    )
     f.set_defaults(func=verb_flash)
 
     m = sub.add_parser("monitor", help="idf.py monitor (interactive)")
@@ -975,10 +1229,10 @@ def build_parser():
 
     h = sub.add_parser("hil", help="workbench-mediated HIL (sim or real)")
     h.add_argument("board", type=Path)
-    h.add_argument("--satellite", default="sim",
-                   help="'sim' or a serial port for a real satellite")
-    h.add_argument("--workbench", default=None,
-                   help="base URL of a running workbench (real hardware)")
+    h.add_argument("--satellite", default="sim", help="'sim' or a serial port for a real satellite")
+    h.add_argument(
+        "--workbench", default=None, help="base URL of a running workbench (real hardware)"
+    )
     h.set_defaults(func=verb_hil)
 
     r = sub.add_parser("run", help="validate->scaffold->build->flash->hil")
@@ -990,27 +1244,35 @@ def build_parser():
     r.set_defaults(func=verb_run)
 
     up = sub.add_parser("up", help="open the cage / pass USB (launcher)")
-    up.add_argument("rest", nargs=argparse.REMAINDER,
-                    help="args passed through to the launcher")
+    up.add_argument("rest", nargs=argparse.REMAINDER, help="args passed through to the launcher")
     up.set_defaults(func=verb_up)
 
     wbp = sub.add_parser("workbench", help="run the networked test instrument")
-    wbp.add_argument("rest", nargs=argparse.REMAINDER,
-                     help="args passed through to the workbench service")
+    wbp.add_argument(
+        "rest", nargs=argparse.REMAINDER, help="args passed through to the workbench service"
+    )
     wbp.set_defaults(func=verb_workbench)
 
     d = sub.add_parser("doctor", help="preflight: deps, toolchain, ports, satellite")
-    d.add_argument("--satellite", default=None,
-                   help="ping a satellite: 'sim' or a serial port")
-    d.add_argument("--fix", action="store_true",
-                   help="install missing prerequisites (uv .venv deps, usbipd-win, "
-                        "Docker if absent, ESP-IDF cage image) before checking")
-    d.add_argument("--uninstall", action="store_true",
-                   help="reverse --fix: remove the .venv, build artifacts, and the "
-                        "cage container (add --purge for the image + usbipd-win)")
-    d.add_argument("--purge", action="store_true",
-                   help="with --uninstall: also remove the ~15GB cage image and "
-                        "usbipd-win (never removes Docker Desktop or uv)")
+    d.add_argument("--satellite", default=None, help="ping a satellite: 'sim' or a serial port")
+    d.add_argument(
+        "--fix",
+        action="store_true",
+        help="install missing prerequisites (uv .venv deps, usbipd-win, "
+        "Docker if absent, ESP-IDF cage image) before checking",
+    )
+    d.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="reverse --fix: remove the .venv, build artifacts, and the "
+        "cage container (add --purge for the image + usbipd-win)",
+    )
+    d.add_argument(
+        "--purge",
+        action="store_true",
+        help="with --uninstall: also remove the ~15GB cage image and "
+        "usbipd-win (never removes Docker Desktop or uv)",
+    )
     d.set_defaults(func=verb_doctor)
 
     e = sub.add_parser("env", help="environment helpers")

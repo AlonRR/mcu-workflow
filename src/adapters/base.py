@@ -8,12 +8,13 @@ conductor (`mcuflow`) runs it and the mapping stays testable. This is the hinge
 that keeps ESP32 specifics behind an adapter so STM32 / RP2040 / Zephyr slot in
 beside it (ARCHITECTURE.md "Extensibility beyond ESP32").
 """
+
 from __future__ import annotations
 
 
 class PlatformAdapter:
     name = "base"
-    supported = False          # True once the adapter is real and tested
+    supported = False  # True once the adapter is real and tested
 
     def set_target_cmd(self, chip, path="."):
         raise NotImplementedError

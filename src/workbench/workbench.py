@@ -28,6 +28,7 @@ Run:  python workbench.py --port 8080                       # binds 0.0.0.0
       python workbench.py --satellite sim                   # emulated radios
       python workbench.py --satellite /dev/ttyACM1          # real satellite
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,8 +54,10 @@ def open_satellite(spec):
     if not spec:
         return None, {"backend": "none"}
     from satellite.host.satellite_driver import Satellite
+
     if spec == "sim":
         from satellite.host.sim import SimSatelliteTransport
+
         return Satellite(SimSatelliteTransport()), {"backend": "sim"}
     return Satellite.open_serial(spec), {"backend": "serial", "port": spec}
 
@@ -75,7 +78,7 @@ def detect_capabilities(enabled_extra, satellite):
     if satellite is not None:
         try:
             r = satellite.caps()
-            for c in (r.get("capabilities") or []):
+            for c in r.get("capabilities") or []:
                 if c in caps:
                     caps[c] = True
         except Exception:
@@ -91,6 +94,7 @@ def list_serial():
     if os.name == "nt":
         try:
             from serial.tools import list_ports  # pyserial
+
             return sorted(p.device for p in list_ports.comports())
         except Exception:
             return []
@@ -100,14 +104,16 @@ def list_serial():
 def discover_slots(host):
     slots = []
     for i, dev in enumerate(list_serial(), start=1):
-        slots.append({
-            "label": "SLOT" + str(i),
-            "devnode": dev,
-            "tcp_port": 4000 + i,
-            "url": "rfc2217://" + host + ":" + str(4000 + i),
-            "detected_chip": None,
-            "state": "idle",
-        })
+        slots.append(
+            {
+                "label": "SLOT" + str(i),
+                "devnode": dev,
+                "tcp_port": 4000 + i,
+                "url": "rfc2217://" + host + ":" + str(4000 + i),
+                "detected_chip": None,
+                "state": "idle",
+            }
+        )
     return slots
 
 
@@ -131,9 +137,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def _need_sat(self):
         if self.satellite is None:
-            self._send({"ok": False, "error": "no satellite backend "
-                        "(start the workbench with --satellite sim|<port>)"},
-                       code=503)
+            self._send(
+                {
+                    "ok": False,
+                    "error": "no satellite backend "
+                    "(start the workbench with --satellite sim|<port>)",
+                },
+                code=503,
+            )
             return False
         return True
 
@@ -159,14 +170,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/health":
             self._send({"ok": True})
         elif self.path == "/api/info":
-            self._send({
-                "ok": True,
-                "hostname": socket.gethostname(),
-                "platform": platform.platform(),
-                "slots": len(list_serial()),
-                "satellite": self.sat_info,
-                "uptime_s": round(time.time() - START, 1),
-            })
+            self._send(
+                {
+                    "ok": True,
+                    "hostname": socket.gethostname(),
+                    "platform": platform.platform(),
+                    "slots": len(list_serial()),
+                    "satellite": self.sat_info,
+                    "uptime_s": round(time.time() - START, 1),
+                }
+            )
         elif self.path == "/api/capabilities":
             self._send({"ok": True, "capabilities": self.caps})
         elif self.path == "/api/devices":
@@ -196,8 +209,11 @@ class Handler(BaseHTTPRequestHandler):
             if not ssid:
                 self._send({"ok": False, "error": "ssid required"}, code=400)
                 return
-            self._send(self._sat_call(lambda s: s.wifi_ap_start(
-                ssid, body.get("password", ""), body.get("channel"))))
+            self._send(
+                self._sat_call(
+                    lambda s: s.wifi_ap_start(ssid, body.get("password", ""), body.get("channel"))
+                )
+            )
         elif p == "/api/wifi/ap_stop":
             self._send(self._sat_call(lambda s: s.wifi_ap_stop()))
         elif p == "/api/wifi/scan":
@@ -219,13 +235,22 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="mcuflow workbench service")
     ap.add_argument("--port", type=int, default=8080)
-    ap.add_argument("--host", default="0.0.0.0",
-                    help="bind address (default 0.0.0.0 for LAN; use 127.0.0.1 locally)")
-    ap.add_argument("--satellite", default=os.environ.get("WORKBENCH_SATELLITE", ""),
-                    help="radio/GPIO backend: 'sim' for the emulator, or a serial "
-                         "port/url like /dev/ttyACM1 for a real ESP32 satellite")
-    ap.add_argument("--enable", default=os.environ.get("WORKBENCH_CAPS", ""),
-                    help="force-advertise extra capabilities (comma list)")
+    ap.add_argument(
+        "--host",
+        default="0.0.0.0",
+        help="bind address (default 0.0.0.0 for LAN; use 127.0.0.1 locally)",
+    )
+    ap.add_argument(
+        "--satellite",
+        default=os.environ.get("WORKBENCH_SATELLITE", ""),
+        help="radio/GPIO backend: 'sim' for the emulator, or a serial "
+        "port/url like /dev/ttyACM1 for a real ESP32 satellite",
+    )
+    ap.add_argument(
+        "--enable",
+        default=os.environ.get("WORKBENCH_CAPS", ""),
+        help="force-advertise extra capabilities (comma list)",
+    )
     args = ap.parse_args(argv)
 
     satellite, sat_info = open_satellite(args.satellite.strip() or None)
@@ -235,10 +260,16 @@ def main(argv=None):
     Handler.caps = detect_capabilities(extra, satellite)
 
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
-    print("workbench listening on " + args.host + ":" + str(args.port)
-          + "  satellite: " + sat_info["backend"]
-          + "  capabilities: "
-          + ",".join(k for k, v in Handler.caps.items() if v))
+    print(
+        "workbench listening on "
+        + args.host
+        + ":"
+        + str(args.port)
+        + "  satellite: "
+        + sat_info["backend"]
+        + "  capabilities: "
+        + ",".join(k for k, v in Handler.caps.items() if v)
+    )
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

@@ -19,6 +19,7 @@ NOTE on links: vendor *search* URLs are generated deterministically here.
 Specific product links and live prices are NOT fabricated - the agent fetches
 those with web search at request time (see SKILL.md).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,8 +39,8 @@ VENDORS = {
     "adafruit": "https://www.adafruit.com/?q={q}",
 }
 
-DEFAULT_MCU_MA = 80     # rough active draw if the board is unknown
-DEFAULT_DEV_MA = 20     # rough draw for an unknown peripheral module
+DEFAULT_MCU_MA = 80  # rough active draw if the board is unknown
+DEFAULT_DEV_MA = 20  # rough draw for an unknown peripheral module
 
 
 def _die(msg, code=2):
@@ -77,6 +78,7 @@ def links_for(part):
 
 # --- subcommands -----------------------------------------------------------
 
+
 def cmd_links(args):
     links = links_for(args.part)
     if args.json:
@@ -106,13 +108,11 @@ def cmd_bom(args):
     for it in items:
         it["links"] = links_for(it["name"])
     if args.json:
-        print(json.dumps({"project": (data.get("meta") or {}).get("project"),
-                          "bom": items}))
+        print(json.dumps({"project": (data.get("meta") or {}).get("project"), "bom": items}))
     else:
         print("Bill of materials for '" + str((data.get("meta") or {}).get("project")) + "':")
         for it in items:
-            print("  - " + str(it["qty"]) + "x " + it["name"]
-                  + "  (" + it["role"] + ")")
+            print("  - " + str(it["qty"]) + "x " + it["name"] + "  (" + it["role"] + ")")
             print("      buy: " + it["links"]["aliexpress"])
         print("(prices vary by region; ask the agent for live product links)")
     return 0
@@ -157,8 +157,14 @@ def cmd_wiring(args):
     data = _load_yaml(args.board)
     rows = _wiring_rows(data)
     if args.json:
-        print(json.dumps({"project": (data.get("meta") or {}).get("project"),
-                          "connections": [{"from": a, "to": b} for a, b in rows]}))
+        print(
+            json.dumps(
+                {
+                    "project": (data.get("meta") or {}).get("project"),
+                    "connections": [{"from": a, "to": b} for a, b in rows],
+                }
+            )
+        )
     else:
         print("Wiring guide for '" + str((data.get("meta") or {}).get("project")) + "':")
         if not rows:
@@ -211,7 +217,7 @@ def cmd_power(args):
     runtime_h = round(cap_mah / total, 1) if (cap_mah and total) else None
 
     sleep = (data.get("power") or {}).get("sleep")
-    note_sleep = (sleep in ("light", "deep"))
+    note_sleep = sleep in ("light", "deep")
 
     result = {
         "project": meta.get("project"),
@@ -233,8 +239,13 @@ def cmd_power(args):
         print("  active total            ~" + str(round(total, 1)) + " mA")
         print("  recommend supply >=     " + str(recommended_ma) + " mA")
         if runtime_h is not None:
-            print("  battery " + str(int(cap_mah)) + " mAh -> ~"
-                  + str(runtime_h) + " h active (much longer with sleep)")
+            print(
+                "  battery "
+                + str(int(cap_mah))
+                + " mAh -> ~"
+                + str(runtime_h)
+                + " h active (much longer with sleep)"
+            )
         if note_sleep:
             print("  note: '" + sleep + "' sleep set - average draw will be far below active.")
         if unknown:
@@ -245,8 +256,8 @@ def cmd_power(args):
 
 def build_parser():
     p = argparse.ArgumentParser(
-        prog="design",
-        description="Stage 0 hardware-design helpers (BOM, links, wiring, power).")
+        prog="design", description="Stage 0 hardware-design helpers (BOM, links, wiring, power)."
+    )
     p.add_argument("--json", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
 

@@ -6,6 +6,7 @@ Speaks the JSON-line protocol (see ../protocol.md) over any transport that
 provides write(bytes) and readline()->bytes. Use `Satellite.open_serial(port)`
 for a real board (needs pyserial), or inject a fake transport for tests.
 """
+
 from __future__ import annotations
 
 import json
@@ -35,9 +36,9 @@ def _extract_json_obj(line):
 
 
 class Satellite:
-    read_window = 8.0    # max wait for one reply (covers a blocking wifi.scan)
-    ready_window = 8.0   # max wait for the board to come up after an open-reset
-    ping_every = 1.5     # re-ping cadence during the readiness handshake only
+    read_window = 8.0  # max wait for one reply (covers a blocking wifi.scan)
+    ready_window = 8.0  # max wait for the board to come up after an open-reset
+    ping_every = 1.5  # re-ping cadence during the readiness handshake only
 
     def __init__(self, transport):
         self.t = transport
@@ -67,7 +68,7 @@ class Satellite:
         while time.monotonic() < deadline:
             raw = self.t.readline()
             if not raw:
-                time.sleep(0.005)   # idle (real serial already blocked on timeout)
+                time.sleep(0.005)  # idle (real serial already blocked on timeout)
                 continue
             line = raw.decode("utf-8", "replace").strip()
             if not line:
@@ -86,8 +87,10 @@ class Satellite:
         obj, last = self._read_reply(time.monotonic() + self.read_window)
         if obj is not None:
             return obj
-        return {"ok": False, "error": "no JSON response"
-                + (" (last line: " + last + ")" if last else "")}
+        return {
+            "ok": False,
+            "error": "no JSON response" + (" (last line: " + last + ")" if last else ""),
+        }
 
     def wait_ready(self):
         """Absorb the post-open reset: re-ping until the board answers, draining
@@ -99,7 +102,7 @@ class Satellite:
             window = min(deadline, time.monotonic() + self.ping_every)
             obj, _ = self._read_reply(window)
             if obj is not None:
-                self._drain()       # clear any extra ping replies
+                self._drain()  # clear any extra ping replies
                 return True
         return False
 
@@ -137,6 +140,7 @@ class Satellite:
     @classmethod
     def open_serial(cls, port, baud=115200, timeout=1.0):
         import serial  # pyserial; only needed for a real board
+
         # Short per-read timeout so _read_reply iterates promptly; wait_ready then
         # absorbs the board's open-induced reset before any real command is sent.
         inst = cls(serial.serial_for_url(port, baudrate=baud, timeout=timeout))

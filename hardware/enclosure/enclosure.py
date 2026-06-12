@@ -16,6 +16,7 @@ PCB standoffs, and port cutouts on the requested sides.
 
 Exit codes: 0 ok, 2 usage / bad input.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,10 +60,19 @@ def _enc_params(data):
     inner_y = by + 2 * clr
     inner_z = standoff + bz + 8.0  # headroom above the board
     return {
-        "bx": bx, "by": by, "bz": bz, "wall": wall, "clr": clr,
-        "standoff": standoff, "style": style, "cutouts": cutouts,
-        "inner_x": inner_x, "inner_y": inner_y, "inner_z": inner_z,
-        "outer_x": inner_x + 2 * wall, "outer_y": inner_y + 2 * wall,
+        "bx": bx,
+        "by": by,
+        "bz": bz,
+        "wall": wall,
+        "clr": clr,
+        "standoff": standoff,
+        "style": style,
+        "cutouts": cutouts,
+        "inner_x": inner_x,
+        "inner_y": inner_y,
+        "inner_z": inner_z,
+        "outer_x": inner_x + 2 * wall,
+        "outer_y": inner_y + 2 * wall,
         "outer_z": inner_z + wall,
     }
 
@@ -73,12 +83,17 @@ def gen_build123d_script(project, p):
     for c in p["cutouts"]:
         side = c.get("side", "-y")
         what = c.get("for", "port")
-        cut_lines.append('    # cutout for ' + str(what) + ' on side ' + str(side)
-                         + ' - size/position to your connector')
+        cut_lines.append(
+            "    # cutout for "
+            + str(what)
+            + " on side "
+            + str(side)
+            + " - size/position to your connector"
+        )
     cut_block = "\n".join(cut_lines) if cut_lines else "    # (no cutouts declared)"
 
     return (
-        '"""Parametric enclosure for ' + project + ' (auto-generated from board.yml).\n'
+        '"""Parametric enclosure for ' + project + " (auto-generated from board.yml).\n"
         "Open in VS Code with the OCP CAD Viewer for a live preview, or run to export.\n"
         '"""\n'
         "from build123d import *\n"
@@ -89,7 +104,13 @@ def gen_build123d_script(project, p):
         "        pass\n"
         "\n"
         "# --- parameters (from board.yml enclosure:) ---\n"
-        "BOARD_X, BOARD_Y, BOARD_Z = " + repr(p["bx"]) + ", " + repr(p["by"]) + ", " + repr(p["bz"]) + "\n"
+        "BOARD_X, BOARD_Y, BOARD_Z = "
+        + repr(p["bx"])
+        + ", "
+        + repr(p["by"])
+        + ", "
+        + repr(p["bz"])
+        + "\n"
         "WALL = " + repr(p["wall"]) + "\n"
         "CLEARANCE = " + repr(p["clr"]) + "\n"
         "STANDOFF = " + repr(p["standoff"]) + "\n"
@@ -111,8 +132,7 @@ def gen_build123d_script(project, p):
         "    with BuildPart():\n"
         "        with Locations((sx, sy, WALL), (-sx, sy, WALL), (sx, -sy, WALL), (-sx, -sy, WALL)):\n"
         "            Cylinder(2.5, STANDOFF, align=(Align.CENTER, Align.CENTER, Align.MIN))\n"
-        "\n"
-        + cut_block + "\n"
+        "\n" + cut_block + "\n"
         "\n"
         "show(case)\n"
         "\n"
@@ -130,30 +150,42 @@ def write_box_stl(path, dx, dy, dz):
     x0, y0, z0 = 0.0, 0.0, 0.0
     x1, y1, z1 = dx, dy, dz
     v = [
-        (x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0),  # bottom 0-3
-        (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1),  # top 4-7
+        (x0, y0, z0),
+        (x1, y0, z0),
+        (x1, y1, z0),
+        (x0, y1, z0),  # bottom 0-3
+        (x0, y0, z1),
+        (x1, y0, z1),
+        (x1, y1, z1),
+        (x0, y1, z1),  # top 4-7
     ]
     # 12 triangles (2 per face), winding outward.
     tris = [
-        (0, 2, 1), (0, 3, 2),        # bottom (-z)
-        (4, 5, 6), (4, 6, 7),        # top (+z)
-        (0, 1, 5), (0, 5, 4),        # -y
-        (1, 2, 6), (1, 6, 5),        # +x
-        (2, 3, 7), (2, 7, 6),        # +y
-        (3, 0, 4), (3, 4, 7),        # -x
+        (0, 2, 1),
+        (0, 3, 2),  # bottom (-z)
+        (4, 5, 6),
+        (4, 6, 7),  # top (+z)
+        (0, 1, 5),
+        (0, 5, 4),  # -y
+        (1, 2, 6),
+        (1, 6, 5),  # +x
+        (2, 3, 7),
+        (2, 7, 6),  # +y
+        (3, 0, 4),
+        (3, 4, 7),  # -x
     ]
 
     def normal(a, b, c):
-        ux, uy, uz = (b[0]-a[0], b[1]-a[1], b[2]-a[2])
-        vx, vy, vz = (c[0]-a[0], c[1]-a[1], c[2]-a[2])
-        nx, ny, nz = (uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx)
-        m = (nx*nx+ny*ny+nz*nz) ** 0.5 or 1.0
-        return (nx/m, ny/m, nz/m)
+        ux, uy, uz = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+        vx, vy, vz = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+        nx, ny, nz = (uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
+        m = (nx * nx + ny * ny + nz * nz) ** 0.5 or 1.0
+        return (nx / m, ny / m, nz / m)
 
     with open(path, "wb") as f:
-        f.write(b"\0" * 80)               # header
+        f.write(b"\0" * 80)  # header
         f.write(struct.pack("<I", len(tris)))
-        for (ia, ib, ic) in tris:
+        for ia, ib, ic in tris:
             a, b, c = v[ia], v[ib], v[ic]
             n = normal(a, b, c)
             f.write(struct.pack("<3f", *n))
@@ -164,8 +196,7 @@ def write_box_stl(path, dx, dy, dz):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(
-        description="Generate a parametric FDM enclosure from board.yml.")
+    ap = argparse.ArgumentParser(description="Generate a parametric FDM enclosure from board.yml.")
     ap.add_argument("board", type=Path)
     ap.add_argument("-o", "--out", type=Path, default=Path("."))
     args = ap.parse_args(argv)
@@ -185,13 +216,27 @@ def main(argv=None):
     write_box_stl(stl_path, p["outer_x"], p["outer_y"], p["outer_z"])
 
     print("Generated enclosure for '" + project + "':")
-    print("  build123d script : " + str(script_path)
-          + "  (open in VS Code + OCP CAD Viewer)")
-    print("  STL preview      : " + str(stl_path)
-          + "  (" + str(round(p["outer_x"], 1)) + " x "
-          + str(round(p["outer_y"], 1)) + " x " + str(round(p["outer_z"], 1)) + " mm)")
-    print("  walls " + str(p["wall"]) + " mm, clearance " + str(p["clr"])
-          + " mm, " + str(len(p["cutouts"])) + " cutout(s).")
+    print("  build123d script : " + str(script_path) + "  (open in VS Code + OCP CAD Viewer)")
+    print(
+        "  STL preview      : "
+        + str(stl_path)
+        + "  ("
+        + str(round(p["outer_x"], 1))
+        + " x "
+        + str(round(p["outer_y"], 1))
+        + " x "
+        + str(round(p["outer_z"], 1))
+        + " mm)"
+    )
+    print(
+        "  walls "
+        + str(p["wall"])
+        + " mm, clearance "
+        + str(p["clr"])
+        + " mm, "
+        + str(len(p["cutouts"]))
+        + " cutout(s)."
+    )
     return 0
 
 

@@ -19,6 +19,7 @@ sim whether an AP it should join is actually up.
 This is what lets the whole two-board workflow run with zero hardware; swap the
 transport for ``Satellite.open_serial(port)`` to talk to a real C3 instead.
 """
+
 from __future__ import annotations
 
 import json
@@ -31,8 +32,8 @@ class SimState:
     """Observable 'hardware' state shared with anything that needs to peek."""
 
     def __init__(self):
-        self.ap = None            # dict(ssid, password, channel, ip) when up
-        self.gpio = {}            # pin -> 0/1
+        self.ap = None  # dict(ssid, password, channel, ip) when up
+        self.gpio = {}  # pin -> 0/1
         # A couple of fake neighbouring networks so wifi.scan returns something.
         self.visible_networks = [
             {"ssid": "office-2g", "rssi": -57},
@@ -46,7 +47,7 @@ class SimSatelliteTransport:
     def __init__(self, state=None, capabilities=("wifi", "gpio")):
         self.state = state or SimState()
         self.capabilities = list(capabilities)
-        self._out = deque()       # queued response lines (str, no newline)
+        self._out = deque()  # queued response lines (str, no newline)
 
     # --- transport surface expected by Satellite ---------------------------
     def write(self, data: bytes):
@@ -109,6 +110,7 @@ class SimSatelliteTransport:
 def make_sim_satellite(state=None, capabilities=("wifi", "gpio")):
     """Convenience: a Satellite driver wired to a fresh simulator."""
     from satellite.host.satellite_driver import Satellite
+
     return Satellite(SimSatelliteTransport(state=state, capabilities=capabilities))
 
 
@@ -116,9 +118,10 @@ if __name__ == "__main__":
     # Tiny smoke test of the emulator over the real driver.
     import os
     import sys
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
-        os.path.abspath(__file__)))))
+
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     from satellite.host.satellite_driver import Satellite
+
     st = SimState()
     sat = Satellite(SimSatelliteTransport(state=st))
     print("ping :", sat.ping())

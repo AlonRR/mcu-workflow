@@ -1,0 +1,39 @@
+# Build gate (deliverable #11). Copy to .github/workflows/build.yml in a project.
+# Runs on a GitHub-hosted runner inside the pinned ESP-IDF container - no
+# hardware needed, so it is the fast first gate on every push/PR.
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:release-v6.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate board.yml
+        shell: bash
+        run: |
+          pip install pyyaml jsonschema
+          python tools/board-schema/validate.py board.yml
+
+      - name: Build firmware
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          # mcuflow is the canonical path; falls back to idf.py if not vendored.
+          if [ -f tools/mcuflow/mcuflow.py ]; then
+            python tools/mcuflow/mcuflow.py build --path .
+          else
+            idf.py build
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: build/*.bin

@@ -1,0 +1,41 @@
+# Hardware-in-the-loop stage (deliverable #11).
+# Copy to .github/workflows/hil.yml. Runs on a SELF-HOSTED runner that has the
+# board physically attached. The `runs-on` labels are the chip + instrument
+# routing from ARCHITECTURE.md Section 8: this job only lands on a runner
+# tagged for an esp32s3 with the 'generic' environment.
+name: hil
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  hil:
+    # Edit these labels to match your board/instruments (e.g. add 'ble', 'wifi').
+    runs-on: [self-hosted, esp32s3, generic]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up test deps
+        shell: bash
+        run: |
+          pip install pytest pytest-embedded pytest-embedded-idf pytest-embedded-serial-esp
+
+      - name: Build, flash, and run HIL tests
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py set-target esp32s3
+          idf.py build
+          # pytest-embedded flashes the board and runs the on-target tests.
+          pytest --target esp32s3 pytest_*.py
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hil-report
+          path: |
+            *.xml
+            pytest-embedded/

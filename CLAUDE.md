@@ -23,7 +23,7 @@ real version.
 - Satellite firmware, **ESP-IDF edition**: `src/satellite/firmware-idf/` (preferred,
   one toolchain for both boards). Arduino version still in `src/satellite/firmware/`.
 - Workbench drives the satellite over HTTP: `mcuflow workbench --satellite COMx`.
-- Launcher passes through **two** boards. `tests/smoke.py` is the regression.
+- Launcher passes through **two** boards. `pytest` (tests/) is the regression.
 
 ## Your first tasks (in order)
 0. `mcuflow doctor --fix` — the tool installs its own prerequisites (Python deps
@@ -31,7 +31,7 @@ real version.
    Windows, Docker if absent, and it pulls the ESP-IDF cage image). Re-run plain
    `mcuflow doctor` to confirm green. The cage side has the same:
    `mcuflow up doctor --fix`.
-1. `python tests/smoke.py` — confirm the sim baseline is green.
+1. `pytest` — confirm the sim baseline is green.
 2. `mcuflow doctor --satellite <SAT_PORT>` — check toolchain, both ports, ping.
 3. Build + flash the **satellite** (`src/satellite/firmware-idf/`, `set-target
    esp32c3`). Verify: `mcuflow workbench --satellite <SAT_PORT>` then

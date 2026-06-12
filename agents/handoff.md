@@ -110,8 +110,8 @@ the real target boards (2× ESP32-C3 Super Mini):
   in `bin/` (`mcuflow.bat` for Windows, `mcuflow` for POSIX).
 - **`src/launcher/up.py`** — passes through **two** boards (DUT + satellite) via
   repeated `--device`/`--busid`; cross-platform serial listing.
-- **`tests/smoke.py`** — hardware-free regression (7 checks); 18-point manual
-  sweep also green.
+- **`tests/test_smoke.py`** (run `pytest`) — hardware-free regression (7 checks);
+  18-point manual sweep also green.
 - **`docs/runbook-c3.md`** — step-by-step two-C3 bring-up with the sim→real swap table.
 
 Try it: `python src/mcuflow/mcuflow.py --sim run examples/board-c3.yml`.

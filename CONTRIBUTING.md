@@ -20,7 +20,7 @@ uv run --with pre-commit pre-commit install   # auto-run lint/format/checks on c
 `pre-commit` runs these on every commit; you can also run them by hand:
 
 ```sh
-uv run python tests/smoke.py              # hardware-free regression — must pass
+uv run pytest              # hardware-free regression — must pass
 uv run --with ruff ruff check .           # lint — CI enforces this
 uv run --with ruff ruff format .          # format — CI enforces this
 ```

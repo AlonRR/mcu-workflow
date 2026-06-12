@@ -11,7 +11,7 @@ gotchas. The whole loop already passes in simulation; your job is the real run.
 
 Work in this order, and **stop and show me the output at each checkpoint**:
 
-1. `python tests/smoke.py` — confirm the sim baseline is green.
+1. `pytest` — confirm the sim baseline is green.
 
 2. Decide the run mode and tell me which:
    - **Native** if `idf.py` is on PATH (run directly), or

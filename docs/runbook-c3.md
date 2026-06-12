@@ -28,7 +28,7 @@ mcuflow --sim run examples/board-c3.yml -o build-out/c3
 You should see five green stages — validate, scaffold, build, flash, hil — and a
 simulated C3 booting and joining the satellite's WiFi AP. That exercises the
 exact same code paths the real run uses; only the bottom layer (idf.py, esptool,
-the serial link) is stubbed. `python tests/smoke.py` runs the full regression.
+the serial link) is stubbed. `pytest` runs the full regression.
 
 ---
 

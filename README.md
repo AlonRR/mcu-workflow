@@ -58,7 +58,7 @@ pulls the dependencies and creates the `mcuflow` command in one step:
 uv venv                                  # make a .venv (uv supplies Python)
 uv pip install -e .                      # deps from pyproject + the `mcuflow` console script
 uv run mcuflow --sim run examples/board-c3.yml -o ./my-project
-uv run python tests/smoke.py             # hardware-free regression (also in CI)
+uv run pytest             # hardware-free regression (also in CI)
 ```
 
 `mcuflow doctor --fix` does exactly this `uv pip install -e .` for you, plus the
@@ -90,7 +90,7 @@ hardware/       Stage-0 helpers: BOM/wiring (design/) and the FDM case (enclosur
 deploy/         the cage's egress-allowlist proxy + compose
 ci-templates/   GitHub Actions you copy into a generated project
 bin/            mcuflow / mcuflow.bat entry points
-tests/          smoke.py — hardware-free regression
+tests/          test_smoke.py — hardware-free regression (run `pytest`)
 docs/           human documentation  (see docs/README.md)
 agents/         material for AI coding agents  (see agents/README.md)
 CLAUDE.md       brief auto-loaded by Claude Code (kept at root by convention)

@@ -7,21 +7,21 @@ Mini boards** (one satellite/test-instrument, one DUT).
 
 ## What this project is
 A modular microcontroller workflow. `board.yml` is the single source of truth;
-the `mcuflow` CLI is the deterministic conductor. Read `ARCHITECTURE.md` for the
-full design and `RUNBOOK-C3.md` for the step-by-step two-C3 procedure. The whole
+the `mcuflow` CLI is the deterministic conductor. Read `docs/architecture.md` for the
+full design and `docs/runbook-c3.md` for the step-by-step two-C3 procedure. The whole
 loop already runs in **simulation** (`mcuflow --sim run ...`); your task is the
 real version.
 
 ## Already built and verified (no hardware)
 - `mcuflow` CLI: verbs `validate scaffold build flash monitor test hil run up
   workbench env doctor`; `--sim` runs build/flash/test with no toolchain.
-- C3 DUT config: `board-schema/examples/board-c3.yml` (LED=GPIO8 active-low,
+- C3 DUT config: `examples/board-c3.yml` (LED=GPIO8 active-low,
   BOOT=GPIO9, native USB, 4MB). Scaffolds chip-correct (`set-target esp32c3`).
 - DUT firmware: the scaffold now generates **real WiFi-join code** when
   `test.needs` includes `wifi` (`main/main.c` -> `wifi_join()`), printing
   `app_main started` then `wifi: connected to '<ssid>', got ip ...`.
-- Satellite firmware, **ESP-IDF edition**: `satellite/firmware-idf/` (preferred,
-  one toolchain for both boards). Arduino version still in `satellite/firmware/`.
+- Satellite firmware, **ESP-IDF edition**: `src/satellite/firmware-idf/` (preferred,
+  one toolchain for both boards). Arduino version still in `src/satellite/firmware/`.
 - Workbench drives the satellite over HTTP: `mcuflow workbench --satellite COMx`.
 - Launcher passes through **two** boards. `tests/smoke.py` is the regression.
 
@@ -32,10 +32,10 @@ real version.
    The cage side has the same: `mcuflow up doctor --fix`.
 1. `python tests/smoke.py` — confirm the sim baseline is green.
 2. `mcuflow doctor --satellite <SAT_PORT>` — check toolchain, both ports, ping.
-3. Build + flash the **satellite** (`satellite/firmware-idf/`, `set-target
+3. Build + flash the **satellite** (`src/satellite/firmware-idf/`, `set-target
    esp32c3`). Verify: `mcuflow workbench --satellite <SAT_PORT>` then
    `curl -X POST http://127.0.0.1:8080/api/satellite/ping`.
-4. `mcuflow run board-schema/examples/board-c3.yml --port <DUT_PORT>
+4. `mcuflow run examples/board-c3.yml --port <DUT_PORT>
    --workbench http://127.0.0.1:8080` (drop `--sim`; this is real).
 5. Confirm on the DUT serial that it booted AND printed the `wifi: connected`
    line while the satellite's AP was up.
@@ -53,10 +53,10 @@ real version.
   embedded) and confirm the `wifi: connected` line. Wiring `hil` to read the real
   DUT serial instead of the model is the one remaining integration to finish.
 - **WiFi creds:** firmware uses `WIFI_SSID="mcuflow-test"` / `WIFI_PASS=
-  "password123"` (see `main.c` and `sim/hil.py`). Use the same when raising the
+  "password123"` (see `main.c` and `src/sim/hil.py`). Use the same when raising the
   AP, or change both sides together.
 
 ## Boundaries
-Stay within the cage's intent (ARCHITECTURE.md §6–7). Don't push to shared
+Stay within the cage's intent (docs/architecture.md §6–7). Don't push to shared
 remotes or exfiltrate secrets. Hardware on the bench is safe to iterate on; use
 the satellite GPIO to reset/recover a wedged DUT rather than asking for hands.

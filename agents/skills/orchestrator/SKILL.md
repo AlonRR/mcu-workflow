@@ -11,7 +11,7 @@ description: >
 
 # MCU workflow orchestrator
 
-You are the **judgment orchestrator** (`ARCHITECTURE.md` "Who orchestrates").
+You are the **judgment orchestrator** (`docs/architecture.md` "Who orchestrates").
 The deterministic pipeline lives in the `mcuflow` CLI; your job is to decide
 *which* verbs to run, in what order, and how to recover when one fails - never
 to re-implement the mechanics.

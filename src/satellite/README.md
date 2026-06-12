@@ -1,6 +1,6 @@
 # satellite — ESP32 radio/GPIO backend (deliverable #8, Layer 0)
 
-The chosen default backend for the workbench's radio/GPIO instruments. A second, cheap ESP32 runs a fixed firmware and provides WiFi / BLE / GPIO (and basic signal) over **USB-serial**, so *any* host gains those instruments from one identical part — no OS-specific dongles, works on Windows/macOS/Linux alike (`ARCHITECTURE.md` §9, §13).
+The chosen default backend for the workbench's radio/GPIO instruments. A second, cheap ESP32 runs a fixed firmware and provides WiFi / BLE / GPIO (and basic signal) over **USB-serial**, so *any* host gains those instruments from one identical part — no OS-specific dongles, works on Windows/macOS/Linux alike (`docs/architecture.md` §9, §13).
 
 ## Contents
 
@@ -30,4 +30,4 @@ The host driver's protocol handling is verified against a simulated firmware (ro
 
 ## Transport note
 
-USB-serial is the default. The same line protocol can run over TCP later for a remotely-placed satellite, without changing the driver surface (`ARCHITECTURE.md` §13).
+USB-serial is the default. The same line protocol can run over TCP later for a remotely-placed satellite, without changing the driver surface (`docs/architecture.md` §13).

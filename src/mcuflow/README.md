@@ -1,13 +1,13 @@
 # mcuflow — the conductor CLI (deliverable #2)
 
-`mcuflow` is the single canonical entry point for the workflow — the *deterministic conductor*. It wraps the modular deliverables as verbs with a stable contract: human output by default, one JSON object with `--json`, and documented exit codes. CI, scripts, and the agent all go through it, so behavior never diverges (see `ARCHITECTURE.md`, "Who orchestrates").
+`mcuflow` is the single canonical entry point for the workflow — the *deterministic conductor*. It wraps the modular deliverables as verbs with a stable contract: human output by default, one JSON object with `--json`, and documented exit codes. CI, scripts, and the agent all go through it, so behavior never diverges (see `docs/architecture.md`, "Who orchestrates").
 
 ## Use
 
 ```bash
 pip install pyyaml jsonschema
-python mcuflow.py validate ../board-schema/examples/board.yml
-python mcuflow.py scaffold ../board-schema/examples/board.yml -o ./my-project
+python mcuflow.py validate ../examples/board.yml
+python mcuflow.py scaffold ../examples/board.yml -o ./my-project
 python mcuflow.py env doctor
 python mcuflow.py --json validate my-board.yml      # machine-readable
 ```

@@ -22,7 +22,7 @@ From the project folder (Windows: make sure `bin\` is on your PATH, or call
 `python mcuflow\mcuflow.py`):
 
 ```
-mcuflow --sim run board-schema/examples/board-c3.yml -o build-out/c3
+mcuflow --sim run examples/board-c3.yml -o build-out/c3
 ```
 
 You should see five green stages — validate, scaffold, build, flash, hil — and a
@@ -53,7 +53,7 @@ you attach a board.
 Toolchains:
 - **DUT** builds with **ESP-IDF v6.0** — provided by the cage image
   `espressif/idf:release-v6.0`, so you don't install it on the host.
-- **Satellite** firmware (`satellite/firmware/satellite.ino`) is an **Arduino**
+- **Satellite** firmware (`src/satellite/firmware/satellite.ino`) is an **Arduino**
   sketch. The cage is an ESP-IDF image and has no Arduino toolchain, so the
   satellite is the one piece the cage can't build as-is. Two options:
   1. Flash the satellite **from the host** with `arduino-cli` (ESP32 core +
@@ -107,8 +107,8 @@ expect the COM number to briefly drop/return around a flash.
 Option 1 (host, Arduino):
 
 ```
-arduino-cli compile --fqbn esp32:esp32:esp32c3 satellite/firmware/satellite.ino
-arduino-cli upload  --fqbn esp32:esp32:esp32c3 -p COM5 satellite/firmware/satellite.ino
+arduino-cli compile --fqbn esp32:esp32:esp32c3 src/satellite/firmware/satellite.ino
+arduino-cli upload  --fqbn esp32:esp32:esp32c3 -p COM5 src/satellite/firmware/satellite.ino
 ```
 
 Sanity-check it speaks the protocol:
@@ -144,7 +144,7 @@ Inside the cage (or on the host if you installed ESP-IDF natively):
 mcuflow workbench --satellite /dev/ttyACM1 &
 
 # build + flash + boot-test the DUT, driving the real satellite for radio tests
-mcuflow run board-schema/examples/board-c3.yml \
+mcuflow run examples/board-c3.yml \
         --port /dev/ttyACM0 \
         --workbench http://127.0.0.1:8080
 ```
@@ -169,4 +169,4 @@ What is real vs. still to come at this step:
 - The satellite is driven over one code path whether sim or real — only
   `--satellite sim|COMx` changes (Section 4/6).
 - The boundary (egress allowlist, cap-drop, non-root) is the cage's, unchanged
-  by any of this — see `ARCHITECTURE.md` §6–7 and `cage/`.
+  by any of this — see `docs/architecture.md` §6–7 and `deploy/cage/`.

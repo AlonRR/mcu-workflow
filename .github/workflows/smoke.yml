@@ -1,0 +1,23 @@
+name: smoke
+
+# Hardware-free regression: runs the whole mcuflow loop in simulation
+# (validate -> scaffold -> build -> flash -> HIL) plus the launcher dry-run.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install core deps
+        run: pip install pyyaml jsonschema
+      - name: Run smoke test
+        run: python tests/smoke.py

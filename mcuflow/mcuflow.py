@@ -78,15 +78,21 @@ def _venv_python(venv=None):
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def _maybe_reexec_into_venv():
-    vpy = _venv_python()
-    if not vpy.exists():
-        return
+def _same_path(a, b):
+    """Path equality that survives 8.3 short names and case on Windows."""
     try:
-        same = Path(sys.executable).resolve() == vpy.resolve()
+        na = os.path.normcase(os.path.realpath(str(a)))
+        nb = os.path.normcase(os.path.realpath(str(b)))
+        return na == nb
     except Exception:
-        same = False
-    if same or os.environ.get("MCUFLOW_NO_REEXEC") == "1":
+        return False
+
+
+def _maybe_reexec_into_venv():
+    if os.environ.get("MCUFLOW_NO_REEXEC") == "1":
+        return
+    vpy = _venv_python()
+    if not vpy.exists() or _same_path(sys.executable, vpy):
         return
     # Re-run under the venv interpreter via subprocess (NOT os.execv): on Windows
     # os.execv does not replace the process - it spawns asynchronously and returns
@@ -409,8 +415,12 @@ def verb_run(args):
         for s in stages:
             head = "  [" + ("ok  " if s["ok"] else "FAIL") + "] " + s["stage"]
             lines.append(head)
-            first = (s["detail"] or "").strip().splitlines()
-            for ln in first[:3]:
+            detail = (s["detail"] or "").strip().splitlines()
+            # Show every line of the stage that decided the result, and of the
+            # hil stage (its per-step PASS/FAIL + DUT serial is the whole point);
+            # other passing stages get a short head so the summary stays scannable.
+            show = detail if (not s["ok"] or s["stage"] == "hil") else detail[:3]
+            for ln in show:
                 lines.append("        " + ln)
         lines.append("RESULT: " + ("PASS" if code == EXIT_OK else "FAIL"))
         return emit(out, args.json, lines)
@@ -683,7 +693,7 @@ def _cage_image():
     return img
 
 
-def _doctor_fix(mods, tools, host_is_windows):
+def _doctor_fix(host_is_windows):
     """Install everything the tool needs; return a list of log lines."""
     log = []
 
@@ -736,14 +746,13 @@ def _doctor_fix(mods, tools, host_is_windows):
 def verb_doctor(args):
     """Preflight for a real two-board run: deps, toolchain, ports, satellite.
 
-    With --fix the tool installs its own prerequisites first (pip deps, usbipd-win,
-    Docker if missing, and the ESP-IDF cage image), then re-checks and reports.
+    With --fix the tool installs its own prerequisites first (a uv-managed .venv
+    with the Python deps, usbipd-win, Docker if missing, and the ESP-IDF cage
+    image), then re-checks and reports.
     """
     fix_log = []
     if getattr(args, "fix", False):
-        pre_mods = {m: _have_module(m) for m in ["yaml", "jsonschema", "serial"]}
-        pre_tools = {t: shutil.which(t) for t in ["docker", "usbipd"]}
-        fix_log = _doctor_fix(pre_mods, pre_tools, host_is_windows=(os.name == "nt"))
+        fix_log = _doctor_fix(host_is_windows=(os.name == "nt"))
 
     tools = {t: shutil.which(t) for t in
              ["idf.py", "esptool", "pytest", "cmake", "ninja", "git", "docker"]}
@@ -778,7 +787,7 @@ def verb_doctor(args):
     lines.append("  python deps:")
     for m in ("yaml", "jsonschema"):
         lines.append("    [" + ("ok " if mods[m] else "-- ") + "] " + m
-                     + ("" if mods[m] else "  (pip install pyyaml jsonschema)"))
+                     + ("" if mods[m] else "  (run: mcuflow doctor --fix)"))
     lines.append("    [" + ("ok " if mods["serial"] else "-- ") + "] pyserial"
                  + ("" if mods["serial"] else "  (needed for real serial / COM discovery)"))
     lines.append("    [" + ("ok " if mods.get("esptool") else "-- ") + "] esptool"
@@ -903,7 +912,7 @@ def build_parser():
     d.add_argument("--satellite", default=None,
                    help="ping a satellite: 'sim' or a serial port")
     d.add_argument("--fix", action="store_true",
-                   help="install missing prerequisites (pip deps, usbipd-win, "
+                   help="install missing prerequisites (uv .venv deps, usbipd-win, "
                         "Docker if absent, ESP-IDF cage image) before checking")
     d.set_defaults(func=verb_doctor)
 

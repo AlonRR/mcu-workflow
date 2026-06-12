@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# uv
+uv.lock
+
+# ESP-IDF build output (generated)
+build/
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+
+# mcuflow generated projects / scratch
+build-out/
+
+# OS
+Thumbs.db
+.DS_Store

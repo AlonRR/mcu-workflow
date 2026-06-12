@@ -1,0 +1,12 @@
+# Core (needed to run the Python tools: validator, scaffold, CLI, design, workbench)
+pyyaml>=6.0
+jsonschema>=4.0
+
+# --- Optional, install per capability ---
+# pyserial>=3.5                       # satellite/host driver against a real board
+# build123d                           # enclosure modeling / STL-STEP export (large; needs OCP)
+# ocp_vscode                          # enclosure live preview in VS Code (+ the OCP CAD Viewer extension)
+# pytest                              # HIL test runner
+# pytest-embedded                     # HIL framework
+# pytest-embedded-idf                 # ESP-IDF integration
+# pytest-embedded-serial-esp          # serial/ESP target support

@@ -1,0 +1,17 @@
+# Intentionally broken — used to demonstrate the validator's error messages.
+# Expect: errors for the bad platform, the I2C device with no address,
+# the device on an undefined bus, and the SPI device with no cs;
+# plus a warning for the pin 8 conflict.
+meta:
+  project: broken-demo
+  platform: esp64          # not an allowed platform
+  chip: esp32s3
+
+pins:
+  i2c0: { sda: 8, scl: 9 }
+  status_led: 8            # conflicts with i2c0.sda (both pin 8)
+
+devices:
+  temp:    { part: BME280, bus: i2c0 }          # missing address
+  display: { part: SSD1306, bus: i2c9, address: 0x3C }  # bus i2c9 not defined
+  sd_card: { part: microSD, bus: spi2 }         # missing cs (and spi2 undefined)

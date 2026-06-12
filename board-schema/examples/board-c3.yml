@@ -1,0 +1,38 @@
+# board-c3.yml - DUT config for an ESP32-C3 Super Mini.
+#
+# Tuned for the real board you have. C3-specific gotchas baked in:
+#   - GPIO8  = onboard LED (active-LOW on the Super Mini)
+#   - GPIO9  = BOOT strap button (don't reuse as a normal IO)
+#   - native USB-Serial/JTAG over the USB-C port (no CH340) -> flashes as /dev/ttyACM*
+#   - GPIO20/21 are the default UART0; GPIO4-7 are the JTAG pins
+# So buses are placed on clean pins that avoid the LED, the BOOT strap and UART.
+meta:
+  project: c3-sensor-node
+  platform: esp32          # selects the esp32 adapter (covers C3)
+  chip: esp32c3            # -> idf.py set-target esp32c3
+  board: esp32-c3-supermini
+  framework: esp-idf
+
+build:
+  sdkconfig:
+    CONFIG_ESPTOOLPY_FLASHSIZE_4MB: y       # Super Mini ships 4MB flash
+    CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: y    # console over the native USB
+
+pins:
+  i2c0: { sda: 5, scl: 6, freq_hz: 400000 } # GPIO5/6: clear of LED/BOOT/UART
+  status_led: 8                              # onboard LED (active-low)
+
+devices:
+  temp: { part: BME280, bus: i2c0, address: 0x76, driver: espressif/bme280 }
+
+power:
+  sleep: none
+  cpu_freq_mhz: 160
+
+test:
+  needs: [serial, wifi]                      # 'wifi' routes to a host with a satellite
+  boot_string: "app_main started"
+
+rig:
+  dut_boot_gpio: 9          # satellite drives this LOW + pulses EN to force download mode
+  satellite: required       # this suite needs the ESP32 satellite for the wifi test

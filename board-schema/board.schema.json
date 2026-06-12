@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/alonrabinow/micro-controller-workflow/board.schema.json",
+  "title": "board.yml",
+  "description": "The single-source-of-truth contract for one microcontroller project/target. Only 'meta' is required; every other section is optional and omitted when unused.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["project", "platform", "chip"],
+      "properties": {
+        "project": { "type": "string", "minLength": 1 },
+        "platform": { "enum": ["esp32", "stm32", "rp2040", "zephyr"] },
+        "chip": { "type": "string", "minLength": 1 },
+        "board": { "type": "string" },
+        "framework": { "enum": ["esp-idf", "platformio"] }
+      }
+    },
+
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sdkconfig": {
+          "type": "object",
+          "description": "Diffable sdkconfig overrides -> sdkconfig.defaults",
+          "additionalProperties": { "type": ["string", "number", "boolean"] }
+        }
+      }
+    },
+
+    "pins": {
+      "type": "object",
+      "description": "Peripheral roles -> pin numbers. A value is either a single pin (integer) or a bus object (e.g. i2c0: {sda, scl}).",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "integer", "minimum": 0 },
+          {
+            "type": "object",
+            "additionalProperties": { "type": "integer", "minimum": 0 }
+          }
+        ]
+      }
+    },
+
+    "devices": {
+      "type": "object",
+      "description": "Physical electronics the firmware talks to or controls.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["part", "bus"],
+        "properties": {
+          "part": { "type": "string", "minLength": 1 },
+          "bus": { "type": "string", "minLength": 1 },
+          "address": { "type": "integer", "minimum": 0 },
+          "cs": { "type": "integer", "minimum": 0 },
+          "pins": {
+            "type": "object",
+            "additionalProperties": { "type": "integer", "minimum": 0 }
+          },
+          "driver": { "type": "string" }
+        }
+      }
+    },
+
+    "components": {
+      "type": "array",
+      "description": "Software driver dependencies -> idf_component.yml. Items are name:version maps or plain strings.",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "object", "minProperties": 1, "additionalProperties": { "type": "string" } }
+        ]
+      }
+    },
+
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sleep": { "enum": ["none", "light", "deep"] },
+        "cpu_freq_mhz": { "type": "integer", "minimum": 1 },
+        "wake_sources": {
+          "type": "array",
+          "items": { "enum": ["gpio", "timer", "touch", "uart", "ulp"] }
+        },
+        "wake_gpio": { "type": "integer", "minimum": 0 },
+        "light_sleep_on_idle": { "type": "boolean" }
+      }
+    },
+
+    "hardware": {
+      "type": "object",
+      "description": "Pointers to the upstream electrical design (referenced, not duplicated).",
+      "additionalProperties": false,
+      "properties": {
+        "schematic": { "type": "string" },
+        "pcb": { "type": "string" },
+        "bom": { "type": "string" },
+        "power_source": { "type": "string" },
+        "regulator": { "type": "string" }
+      }
+    },
+
+    "enclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "style": { "enum": ["snap-fit", "screw-down", "rail-mount"] },
+        "board_size_mm": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": { "type": "number", "exclusiveMinimum": 0 },
+            "y": { "type": "number", "exclusiveMinimum": 0 },
+            "z": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        "wall_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "clearance_mm": { "type": "number", "minimum": 0 },
+        "standoff_mm": { "type": "number", "minimum": 0 },
+        "cutouts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["for", "side"],
+            "properties": {
+              "for": { "type": "string" },
+              "side": { "enum": ["+x", "-x", "+y", "-y", "+z", "-z"] },
+              "type": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needs": {
+          "type": "array",
+          "items": { "enum": ["serial", "wifi", "ble", "mqtt", "gpio", "ota", "udp-log", "jtag"] }
+        },
+        "boot_string": { "type": "string" }
+      }
+    },
+
+    "rig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dut_reset_gpio": { "type": "integer", "minimum": 0 },
+        "dut_boot_gpio": { "type": "integer", "minimum": 0 },
+        "satellite": { "enum": ["required", "optional", "none"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# Smallest valid board.yml — a blinky. Only `meta` is required;
+# everything else is omitted with no penalty.
+meta:
+  project: blinky
+  platform: esp32
+  chip: esp32c3
+
+pins:
+  status_led: 8

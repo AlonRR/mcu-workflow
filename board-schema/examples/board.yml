@@ -1,0 +1,61 @@
+# Canonical example — a connected sensor node with an enclosure.
+# Demonstrates every section. Only `meta` is required; the rest are optional.
+meta:
+  project: sensor-node
+  platform: esp32          # esp32 | stm32 | rp2040 | zephyr
+  chip: esp32s3
+  board: esp32-s3-devkitc-1
+  framework: esp-idf       # esp-idf | platformio
+
+build:
+  sdkconfig:               # diffable overrides -> sdkconfig.defaults
+    CONFIG_ESPTOOLPY_FLASHSIZE_8MB: y
+
+pins:                      # peripheral roles -> pin numbers (the buses)
+  i2c0: { sda: 8, scl: 9, freq_hz: 400000 }
+  spi2: { mosi: 11, miso: 13, sclk: 12 }
+  uart0: { tx: 43, rx: 44 }
+  status_led: 48
+
+devices:                   # physical electronics the firmware talks to / controls
+  temp:    { part: BME280,  bus: i2c0, address: 0x76, driver: espressif/bme280 }
+  display: { part: SSD1306, bus: i2c0, address: 0x3C }
+  sd_card: { part: microSD, bus: spi2, cs: 10 }
+  motor:   { part: DRV8833, bus: gpio, pins: { in1: 4, in2: 5 } }
+
+components:                # software driver deps -> idf_component.yml
+  - espressif/led_strip: "^2.5.0"
+  - espressif/bme280: "^1.0.0"
+
+power:                     # optional — low-power intent
+  sleep: deep              # none | light | deep
+  cpu_freq_mhz: 80
+  wake_sources: [gpio, timer]
+  wake_gpio: 6
+  light_sleep_on_idle: true
+
+hardware:                  # pointers to the upstream electrical design (referenced)
+  schematic: docs/schematic.pdf
+  pcb: hardware/board.kicad_pro
+  bom: hardware/bom.csv
+  power_source: "LiPo 3.7V 1200mAh"
+  regulator: "AP2112-3.3"
+
+enclosure:                 # optional — parametric build123d case for FDM
+  style: snap-fit          # snap-fit | screw-down | rail-mount
+  board_size_mm: { x: 25.5, y: 51, z: 1.6 }
+  wall_mm: 2.0
+  clearance_mm: 0.4
+  standoff_mm: 3
+  cutouts:
+    - { for: usb_c, side: -y }
+    - { for: status_led, side: +z, type: lightpipe }
+
+test:                      # which instruments the HIL suite needs -> routing
+  needs: [serial, wifi, ble]
+  boot_string: "app_main started"
+
+rig:                       # optional physical wiring for stimulus / recovery
+  dut_reset_gpio: 17
+  dut_boot_gpio: 18
+  satellite: required      # required | optional | none

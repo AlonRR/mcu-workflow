@@ -36,18 +36,18 @@ Per-capability (install when you use that piece):
 - **pytest + pytest-embedded[-idf,-serial-esp]** — HIL tests.
 - **Claude Code** (or another agent) — the in-cage agent; the launcher is agent-agnostic.
 
-## Status (as of this handoff)
+## Status
 
-All 12 planned deliverables are built. Verified-in-sandbox vs needs-real-hardware:
+All 12 planned deliverables are built, and the end-to-end loop has now been run
+on real hardware (two ESP32-C3 Super Minis) — see the session-3 update at the
+bottom of this file for the details. In short: `mcuflow run board-c3.yml` is
+**5/5 stages green** on real silicon (validate, scaffold, cage build, host
+esptool flash, and an on-silicon HIL where the DUT joins the real satellite AP).
 
-- Verified here: board-schema (#1), scaffold (#3), mcuflow CLI (#2), design helpers (#6),
-  enclosure generator (#7), cage topology + allowlist (#5), workbench endpoints (#9),
-  satellite host driver (#8), adapters (#12), CI YAML (#11).
-- Needs real hardware/hosts (not testable in the build sandbox):
-  - on-device firmware builds: `satellite/firmware/satellite.ino`, the scaffolded `main/main.c`
-  - live Docker/WSL2 runs: `launcher/up.py`, `cage/docker-compose.yml`
-  - `idf.py build` of a generated project
-  - deeper workbench layers: RFC2217 serial proxy, auto-GDB, full WiFi/BLE/MQTT/OTA actions
+Still deeper than this bring-up exercised: the heavier workbench layers (RFC2217
+serial proxy, auto-GDB, full BLE/MQTT/OTA actions), and the fully-locked-down
+cage (egress allowlist proxy + docker network) which is wired but left open for
+a first bench run.
 
 ## Resolved design decisions (mirror of project memory)
 

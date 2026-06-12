@@ -1,0 +1,28 @@
+# Starter parts database for the Stage 0 power budget (deliverable #6).
+# Figures are rough, typical active-current values for sizing a supply - NOT
+# datasheet-exact and NOT a substitute for measuring. The agent can extend this
+# (grounded by the Docs MCP server / datasheets) as new parts are used.
+parts:
+  # --- boards (MCU active, Wi-Fi idle) ---
+  esp32-s3-devkitc-1:
+    typical_current_ma: 80
+    notes: "ESP32-S3, Wi-Fi idle; spikes to ~250-500 mA on TX bursts."
+  esp32c3:
+    typical_current_ma: 70
+    notes: "RISC-V, Wi-Fi idle."
+  esp32s3:
+    typical_current_ma: 80
+
+  # --- common breakout modules ---
+  BME280:
+    typical_current_ma: 1
+    notes: "Temp/humidity/pressure, I2C; ~3.6 uA in sleep."
+  SSD1306:
+    typical_current_ma: 20
+    notes: "0.96in OLED, I2C; varies with lit pixels."
+  microSD:
+    typical_current_ma: 50
+    notes: "SPI; spikes to ~100 mA on writes."
+  DRV8833:
+    typical_current_ma: 10
+    notes: "Motor driver logic only; motor current is separate and much larger."

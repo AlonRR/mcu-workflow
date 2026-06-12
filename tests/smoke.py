@@ -13,9 +13,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PY = sys.executable
-M = [PY, str(ROOT / "mcuflow" / "mcuflow.py")]
-C3 = str(ROOT / "board-schema" / "examples" / "board-c3.yml")
-BROKEN = str(ROOT / "board-schema" / "examples" / "broken.yml")
+M = [PY, str(ROOT / "src" / "mcuflow" / "mcuflow.py")]
+C3 = str(ROOT / "examples" / "board-c3.yml")
+BROKEN = str(ROOT / "examples" / "broken.yml")
 TMP = ROOT / "build-out" / "_smoke"
 
 CASES = [

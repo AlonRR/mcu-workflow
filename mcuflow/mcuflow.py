@@ -91,6 +91,10 @@ def _same_path(a, b):
 def _maybe_reexec_into_venv():
     if os.environ.get("MCUFLOW_NO_REEXEC") == "1":
         return
+    # Uninstall deletes the .venv, so it must run under the launching interpreter,
+    # not the venv python (which would be holding the directory open on Windows).
+    if "--uninstall" in sys.argv:
+        return
     vpy = _venv_python()
     if not vpy.exists() or _same_path(sys.executable, vpy):
         return
@@ -743,13 +747,95 @@ def _doctor_fix(host_is_windows):
     return log
 
 
+def _rm_path(path):
+    """Remove a file or directory tree; return a log line."""
+    import shutil as _sh
+    p = Path(path)
+    rel = str(p)
+    if not p.exists():
+        return rel + ": not present"
+    try:
+        if p.is_dir():
+            _sh.rmtree(p)
+        else:
+            p.unlink()
+        return "removed " + rel
+    except Exception as e:
+        return "could NOT remove " + rel + ": " + str(e)
+
+
+def _doctor_uninstall(purge, host_is_windows):
+    """Reverse what `doctor --fix` created. Returns a list of log lines.
+
+    Default removes only project-local, regenerable things (the .venv, build
+    artifacts, the cage container). --purge additionally removes the ~15GB cage
+    image and (Windows) usbipd-win. Docker Desktop and uv are never touched -
+    they pre-existed the install."""
+    log = []
+
+    # 1. The cage container (if any).
+    if shutil.which("docker") is not None:
+        rc, out, _e = _run(["docker", "rm", "-f", "mcuflow-cage"])
+        log.append("cage container 'mcuflow-cage': "
+                   + ("removed" if rc == 0 and out.strip() else "not present"))
+
+    # 2. The uv-managed .venv - but not if we are running from it.
+    if _same_path(sys.executable, _venv_python()):
+        log.append(".venv: SKIPPED - mcuflow is running from it. Re-run with the "
+                   "system python: `python mcuflow/mcuflow.py doctor --uninstall`")
+    else:
+        log.append(_rm_path(_venv_dir()))
+
+    # 3. Build artifacts (all regenerable).
+    for rel in ("build-out",
+                "satellite/firmware-idf/build",
+                "satellite/firmware-idf/managed_components",
+                "satellite/firmware-idf/dependencies.lock",
+                "satellite/firmware-idf/sdkconfig"):
+        log.append(_rm_path(ROOT / rel))
+
+    # 4. --purge: the big image and the system USB tool.
+    img = _cage_image()
+    if purge:
+        if shutil.which("docker") is not None:
+            rc, out, err = _run(["docker", "rmi", img])
+            log.append("cage image " + img + ": "
+                       + ("removed (~15GB reclaimed)" if rc == 0
+                          else "not removed (" + (out + err).strip().splitlines()[-1] + ")"
+                          if (out + err).strip() else "not present"))
+        if host_is_windows and shutil.which("usbipd") is not None:
+            rc, out, err = _run(["winget", "uninstall", "--id", _WINGET_IDS["usbipd"],
+                                 "-e", "--silent", "--disable-interactivity",
+                                 "--accept-source-agreements"])
+            log.append("usbipd-win: " + ("uninstalled" if rc == 0
+                       else "uninstall may need an elevation prompt - approve it"))
+    else:
+        kept = "the " + img + " image (~15GB)"
+        if host_is_windows:
+            kept += " and usbipd-win"
+        log.append("kept (re-run with --purge to remove): " + kept)
+
+    log.append("left untouched: Docker Desktop and uv (they pre-existed --fix).")
+    return log
+
+
 def verb_doctor(args):
     """Preflight for a real two-board run: deps, toolchain, ports, satellite.
 
     With --fix the tool installs its own prerequisites first (a uv-managed .venv
     with the Python deps, usbipd-win, Docker if missing, and the ESP-IDF cage
-    image), then re-checks and reports.
+    image), then re-checks and reports. With --uninstall it reverses that.
     """
+    if getattr(args, "uninstall", False):
+        ulog = _doctor_uninstall(purge=getattr(args, "purge", False),
+                                 host_is_windows=(os.name == "nt"))
+        lines = ["mcuflow doctor --uninstall"
+                 + (" --purge" if getattr(args, "purge", False) else "") + ":"]
+        lines += ["  " + ln for ln in ulog]
+        return emit({"verb": "doctor", "action": "uninstall", "ok": True,
+                     "exit_code": EXIT_OK, "purge": getattr(args, "purge", False),
+                     "log": ulog}, args.json, lines)
+
     fix_log = []
     if getattr(args, "fix", False):
         fix_log = _doctor_fix(host_is_windows=(os.name == "nt"))
@@ -914,6 +1000,12 @@ def build_parser():
     d.add_argument("--fix", action="store_true",
                    help="install missing prerequisites (uv .venv deps, usbipd-win, "
                         "Docker if absent, ESP-IDF cage image) before checking")
+    d.add_argument("--uninstall", action="store_true",
+                   help="reverse --fix: remove the .venv, build artifacts, and the "
+                        "cage container (add --purge for the image + usbipd-win)")
+    d.add_argument("--purge", action="store_true",
+                   help="with --uninstall: also remove the ~15GB cage image and "
+                        "usbipd-win (never removes Docker Desktop or uv)")
     d.set_defaults(func=verb_doctor)
 
     e = sub.add_parser("env", help="environment helpers")

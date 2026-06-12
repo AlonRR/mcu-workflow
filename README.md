@@ -39,6 +39,11 @@ python mcuflow/mcuflow.py doctor --fix
 python mcuflow/mcuflow.py --sim run board-schema/examples/board-c3.yml -o ./my-project
 # -> validate -> scaffold -> build -> flash -> workbench-mediated HIL, all green
 
+# Reverse the install: removes the .venv, build artifacts, and the cage container
+# (add --purge to also drop the ~15GB cage image and usbipd-win). Never touches
+# Docker Desktop or uv, which pre-exist.
+python mcuflow/mcuflow.py doctor --uninstall
+
 python tests/smoke.py                      # hardware-free regression check
 ```
 

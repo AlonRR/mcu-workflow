@@ -9,7 +9,10 @@ argv it returns. ESP32 is supported; the rest are experimental scaffolds.
 """
 from .base import PlatformAdapter
 from .esp32 import Esp32Adapter
-from .others import Stm32Adapter, Rp2040Adapter, ZephyrAdapter
+from .others import Rp2040Adapter, Stm32Adapter, ZephyrAdapter
+
+__all__ = ["PlatformAdapter", "Esp32Adapter", "Stm32Adapter", "Rp2040Adapter",
+           "ZephyrAdapter", "get_adapter", "list_adapters"]
 
 _ADAPTERS = {a.name: a for a in (
     Esp32Adapter(), Stm32Adapter(), Rp2040Adapter(), ZephyrAdapter(),

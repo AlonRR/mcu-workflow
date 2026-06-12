@@ -309,8 +309,10 @@ def build_parser():
     sub = p.add_subparsers(dest="cmd")
 
     u = sub.add_parser("up", help="start or resume the cage (default)")
-    u.add_argument("--device", action="append", default=None, help="serial device to pass through (repeat for DUT + satellite)")
-    u.add_argument("--busid", action="append", default=None, help="(Windows) usbipd bus id to attach (repeat for two boards)")
+    u.add_argument("--device", action="append", default=None,
+                   help="serial device to pass through (repeat for DUT + satellite)")
+    u.add_argument("--busid", action="append", default=None,
+                   help="(Windows) usbipd bus id to attach (repeat for two boards)")
     u.add_argument("--fresh", action="store_true", help="ignore any existing cage")
     u.set_defaults(func=cmd_up)
 

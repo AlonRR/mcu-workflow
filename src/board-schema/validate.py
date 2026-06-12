@@ -17,6 +17,7 @@ Exit codes (stable contract):
   1  invalid (one or more errors)
   2  usage / file / dependency problem
 """
+
 from __future__ import annotations
 
 import argparse
@@ -120,14 +121,10 @@ def semantic_checks(data):
         # 2. Bus-specific required wiring.
         if isinstance(bus, str) and bus.startswith("i2c") and "address" not in dev:
             errors.append(
-                "devices." + dname + ": an I2C device needs an 'address' "
-                "(e.g. address: 0x76)."
+                "devices." + dname + ": an I2C device needs an 'address' (e.g. address: 0x76)."
             )
         if isinstance(bus, str) and bus.startswith("spi") and "cs" not in dev:
-            errors.append(
-                "devices." + dname + ": an SPI device needs a 'cs' "
-                "(chip-select) pin."
-            )
+            errors.append("devices." + dname + ": an SPI device needs a 'cs' (chip-select) pin.")
         if bus == "gpio" and "pins" not in dev:
             errors.append(
                 "devices." + dname + ": a 'gpio' device needs a 'pins' map "
@@ -146,8 +143,11 @@ def semantic_checks(data):
     for pin, roles in _collect_pin_uses(data).items():
         if len(roles) > 1:
             warnings.append(
-                "pin " + str(pin) + " is assigned to more than one role: "
-                + ", ".join(roles) + " - check this is intentional."
+                "pin "
+                + str(pin)
+                + " is assigned to more than one role: "
+                + ", ".join(roles)
+                + " - check this is intentional."
             )
 
     # 5. Low-power sanity: wake_gpio set but 'gpio' not a wake source.
@@ -186,8 +186,9 @@ def validate(path):
         validator_cls = jsonschema.validators.validator_for(schema)
         validator_cls.check_schema(schema)
     except Exception:
-        validator_cls = getattr(jsonschema, "Draft202012Validator", None) \
-            or jsonschema.validators.validator_for(schema)
+        validator_cls = getattr(
+            jsonschema, "Draft202012Validator", None
+        ) or jsonschema.validators.validator_for(schema)
     validator = validator_cls(schema)
     for err in sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path)):
         errors.append(_humanize_schema_error(err))

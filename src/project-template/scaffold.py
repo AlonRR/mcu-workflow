@@ -20,6 +20,7 @@ no model needed, same output every run. Run the board-schema validator first.
 
 Exit codes: 0 ok, 2 usage / dependency / bad input.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -101,18 +102,20 @@ def gen_main_cmake(needs_wifi=False, buses=None):
     # ESP-IDF v6.0 split the monolithic `driver` component into per-peripheral
     # components, so require the specific ones whose headers main.c includes.
     buses = buses or {"i2c": [], "spi": [], "uart": []}
-    reqs = ["esp_driver_gpio"]                       # driver/gpio.h is always used
+    reqs = ["esp_driver_gpio"]  # driver/gpio.h is always used
     if buses.get("i2c"):
-        reqs.append("esp_driver_i2c")                # driver/i2c_master.h
+        reqs.append("esp_driver_i2c")  # driver/i2c_master.h
     if buses.get("spi"):
-        reqs.append("esp_driver_spi")                # driver/spi_master.h
+        reqs.append("esp_driver_spi")  # driver/spi_master.h
     if buses.get("uart"):
-        reqs.append("esp_driver_uart")               # driver/uart.h
+        reqs.append("esp_driver_uart")  # driver/uart.h
     if needs_wifi:
         reqs += ["esp_wifi", "nvs_flash", "esp_netif", "esp_event"]
     reqs_line = "\n                       REQUIRES " + " ".join(reqs)
-    return ('idf_component_register(SRCS "main.c"\n'
-            '                       INCLUDE_DIRS "."' + reqs_line + ")\n")
+    return (
+        'idf_component_register(SRCS "main.c"\n'
+        '                       INCLUDE_DIRS "."' + reqs_line + ")\n"
+    )
 
 
 def gen_component_yml(deps):
@@ -146,13 +149,16 @@ def gen_sdkconfig(data):
             lines.append("CONFIG_FREERTOS_USE_TICKLESS_IDLE=y")
         cf = power.get("cpu_freq_mhz")
         if cf:
-            lines.append("# Target CPU frequency " + str(cf)
-                         + " MHz (set CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_<n> for your chip)")
+            lines.append(
+                "# Target CPU frequency "
+                + str(cf)
+                + " MHz (set CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_<n> for your chip)"
+            )
             lines.append("CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ=" + str(cf))
     return "\n".join(lines) + "\n"
 
 
-_WIFI_HELPER = r'''// --- WiFi STA join (generated because test.needs includes 'wifi') ----------
+_WIFI_HELPER = r"""// --- WiFi STA join (generated because test.needs includes 'wifi') ----------
 // Credentials match the workbench HIL convention (sim/hil.py defaults).
 #define WIFI_SSID "mcuflow-test"
 #define WIFI_PASS "password123"
@@ -194,7 +200,7 @@ static void wifi_join(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
     ESP_ERROR_CHECK(esp_wifi_start());
-}'''
+}"""
 
 
 def gen_main_c(data, buses, needs_wifi=False):
@@ -216,9 +222,13 @@ def gen_main_c(data, buses, needs_wifi=False):
     if buses["uart"]:
         inc.append('#include "driver/uart.h"')
     if needs_wifi:
-        inc += ['#include <string.h>', '#include "nvs_flash.h"',
-                '#include "esp_wifi.h"', '#include "esp_event.h"',
-                '#include "esp_netif.h"']
+        inc += [
+            "#include <string.h>",
+            '#include "nvs_flash.h"',
+            '#include "esp_wifi.h"',
+            '#include "esp_event.h"',
+            '#include "esp_netif.h"',
+        ]
 
     L = []
     L.extend(inc)
@@ -231,24 +241,47 @@ def gen_main_c(data, buses, needs_wifi=False):
         sda = cfg.get("sda")
         scl = cfg.get("scl")
         freq = cfg.get("freq_hz", 400000)
-        L.append("// I2C bus '" + name + "': SDA=GPIO" + str(sda)
-                 + ", SCL=GPIO" + str(scl) + ", " + str(freq) + " Hz")
+        L.append(
+            "// I2C bus '"
+            + name
+            + "': SDA=GPIO"
+            + str(sda)
+            + ", SCL=GPIO"
+            + str(scl)
+            + ", "
+            + str(freq)
+            + " Hz"
+        )
         L.append("// TODO: create with i2c_new_master_bus() then add each device.")
     for name, cfg in buses["spi"]:
-        L.append("// SPI bus '" + name + "': MOSI=GPIO" + str(cfg.get("mosi"))
-                 + ", MISO=GPIO" + str(cfg.get("miso"))
-                 + ", SCLK=GPIO" + str(cfg.get("sclk")))
+        L.append(
+            "// SPI bus '"
+            + name
+            + "': MOSI=GPIO"
+            + str(cfg.get("mosi"))
+            + ", MISO=GPIO"
+            + str(cfg.get("miso"))
+            + ", SCLK=GPIO"
+            + str(cfg.get("sclk"))
+        )
         L.append("// TODO: spi_bus_initialize() then spi_bus_add_device() per device.")
     for name, cfg in buses["uart"]:
-        L.append("// UART '" + name + "': TX=GPIO" + str(cfg.get("tx"))
-                 + ", RX=GPIO" + str(cfg.get("rx")))
+        L.append(
+            "// UART '"
+            + name
+            + "': TX=GPIO"
+            + str(cfg.get("tx"))
+            + ", RX=GPIO"
+            + str(cfg.get("rx"))
+        )
 
     # Device notes.
     if devices:
         L.append("")
         for dname, dev in devices.items():
-            note = "// device '" + dname + "': " + str(dev.get("part")) \
-                   + " on " + str(dev.get("bus"))
+            note = (
+                "// device '" + dname + "': " + str(dev.get("part")) + " on " + str(dev.get("bus"))
+            )
             if "address" in dev:
                 note += ", addr=" + hex(dev["address"])
             if "cs" in dev:
@@ -303,13 +336,16 @@ def gen_pytest(data):
     needs = test.get("needs") or []
 
     L = [
-        '"""HIL test skeleton for ' + project + ' (pytest-embedded).',
+        '"""HIL test skeleton for ' + project + " (pytest-embedded).",
         "",
         "Run on real hardware:  pytest --target " + chip + " " + "pytest_" + project + ".py",
     ]
     if needs:
-        L.append("Instruments this suite needs: " + ", ".join(needs)
-                 + " (route to a runner/workbench that advertises them).")
+        L.append(
+            "Instruments this suite needs: "
+            + ", ".join(needs)
+            + " (route to a runner/workbench that advertises them)."
+        )
     L.append('"""')
     L.append("import pytest")
     L.append("")
@@ -361,18 +397,22 @@ def scaffold(board_path, out_dir):
     _write(out / "main" / "main.c", gen_main_c(data, buses, needs_wifi))
     _write(out / ("pytest_" + project + ".py"), gen_pytest(data))
     _write(out / "README.md", gen_readme(data))
-    print("Done. " + str(len(deps)) + " dependency(ies); "
-          + str(sum(len(v) for v in buses.values())) + " pin group(s).")
+    print(
+        "Done. "
+        + str(len(deps))
+        + " dependency(ies); "
+        + str(sum(len(v) for v in buses.values()))
+        + " pin group(s)."
+    )
     return 0
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(
-        description="Scaffold an ESP-IDF project from a board.yml."
-    )
+    ap = argparse.ArgumentParser(description="Scaffold an ESP-IDF project from a board.yml.")
     ap.add_argument("board", type=Path, help="path to board.yml")
-    ap.add_argument("-o", "--out", type=Path, default=None,
-                    help="output directory (default: ./<project>)")
+    ap.add_argument(
+        "-o", "--out", type=Path, default=None, help="output directory (default: ./<project>)"
+    )
     args = ap.parse_args(argv)
     data = _load_yaml(args.board)
     project = (data.get("meta") or {}).get("project", "project")

@@ -10,6 +10,7 @@ the simulated behaviour tracks the contract. This is a stand-in for real silicon
 zero hardware; on a real board the identical test assertions run against the
 chip's actual serial output instead.
 """
+
 from __future__ import annotations
 
 
@@ -50,5 +51,6 @@ class SimDUT:
             return False, "wrong password"
         self.joined = ap.get("ssid")
         self.serial_log.append(
-            "I (1500) wifi: connected to '" + self.joined + "', got ip " + ap.get("ip", "0.0.0.0"))
+            "I (1500) wifi: connected to '" + self.joined + "', got ip " + ap.get("ip", "0.0.0.0")
+        )
         return True, "joined " + self.joined

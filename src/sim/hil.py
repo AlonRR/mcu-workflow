@@ -19,6 +19,7 @@ Steps:
 Run on real hardware by pointing the workbench at a real satellite port and
 flashing a real DUT - the assertions are identical.
 """
+
 from __future__ import annotations
 
 import json
@@ -39,11 +40,12 @@ class SerialDUT:
     when a dut_port is given. A background thread accumulates every line; opening
     the port resets the C3, so 'app_main started' is reprinted on connect."""
 
-    def __init__(self, board, port, target_ssid="mcuflow-test",
-                 target_password="password123", baud=115200):
+    def __init__(
+        self, board, port, target_ssid="mcuflow-test", target_password="password123", baud=115200
+    ):
         import serial  # pyserial
-        self.boot_string = ((board.get("test") or {}).get("boot_string")
-                            or "app_main started")
+
+        self.boot_string = (board.get("test") or {}).get("boot_string") or "app_main started"
         self.target_ssid = target_ssid
         self.serial_log = []
         self._buf = ""
@@ -71,10 +73,10 @@ class SerialDUT:
 
     def _reset_into_app(self):
         try:
-            self._ser.dtr = False   # GPIO9 high -> boot the app, not the loader
-            self._ser.rts = True    # EN low  -> hold in reset
+            self._ser.dtr = False  # GPIO9 high -> boot the app, not the loader
+            self._ser.rts = True  # EN low  -> hold in reset
             time.sleep(0.1)
-            self._ser.rts = False   # EN high -> release -> chip boots
+            self._ser.rts = False  # EN high -> release -> chip boots
         except Exception:
             pass
 
@@ -121,8 +123,7 @@ class SerialDUT:
         if self._wait_for(target, timeout):
             line = next((ln for ln in self.serial_log if target in ln), target)
             return True, "DUT serial: " + line.strip()
-        return False, ("no '" + target + "' on DUT serial within "
-                       + str(int(timeout)) + "s")
+        return False, ("no '" + target + "' on DUT serial within " + str(int(timeout)) + "s")
 
     def close(self):
         self._stop = True
@@ -134,6 +135,7 @@ class SerialDUT:
 
 def _load_board(path):
     import yaml
+
     with open(path, "r", encoding="utf-8") as fh:
         return yaml.safe_load(fh)
 
@@ -146,8 +148,15 @@ def _http(base, path, body=None):
         return json.loads(r.read().decode())
 
 
-def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test",
-            password="password123", boot_gpio=None, dut_port=None):
+def run_hil(
+    board_path,
+    satellite="sim",
+    workbench_base=None,
+    ssid="mcuflow-test",
+    password="password123",
+    boot_gpio=None,
+    dut_port=None,
+):
     """Run the HIL scenario. Returns a structured report dict.
 
     satellite='sim' spins up an in-process workbench with the emulator.
@@ -171,9 +180,11 @@ def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test
         # Spin up a workbench bound to a sim satellite, in-process.
         import importlib.util
         import os
+
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         spec = importlib.util.spec_from_file_location(
-            "wb", os.path.join(root, "workbench", "workbench.py"))
+            "wb", os.path.join(root, "workbench", "workbench.py")
+        )
         wb = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(wb)
         sat, info = wb.open_satellite(satellite)
@@ -188,8 +199,11 @@ def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test
     try:
         # Precondition: the workbench must advertise wifi (a satellite is present).
         caps = _http(workbench_base, "/api/capabilities").get("capabilities", {})
-        record("workbench_ready", caps.get("wifi", False),
-               "capabilities: " + ",".join(k for k, v in caps.items() if v))
+        record(
+            "workbench_ready",
+            caps.get("wifi", False),
+            "capabilities: " + ",".join(k for k, v in caps.items() if v),
+        )
 
         real = dut_port is not None
         if real:
@@ -200,10 +214,15 @@ def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test
         # 1. boot gate
         dut.boot()
         boot_ok = dut.expect(dut.boot_string)
-        record("test_boots", boot_ok,
-               ("DUT " + str(dut_port) + ": " if real else "")
-               + "expected '" + dut.boot_string + "' -> "
-               + ("found" if boot_ok else "MISSING"))
+        record(
+            "test_boots",
+            boot_ok,
+            ("DUT " + str(dut_port) + ": " if real else "")
+            + "expected '"
+            + dut.boot_string
+            + "' -> "
+            + ("found" if boot_ok else "MISSING"),
+        )
 
         # 2. raise the AP through the workbench HTTP API
         r = _http(workbench_base, "/api/wifi/ap_start", {"ssid": ssid, "password": password})
@@ -219,8 +238,9 @@ def run_hil(board_path, satellite="sim", workbench_base=None, ssid="mcuflow-test
         if boot_gpio is not None:
             a = _http(workbench_base, "/api/gpio/set", {"pin": boot_gpio, "value": 0})
             b = _http(workbench_base, "/api/gpio/set", {"pin": boot_gpio, "value": 1})
-            record("gpio_stimulus", a.get("ok") and b.get("ok"),
-                   "toggled BOOT gpio " + str(boot_gpio))
+            record(
+                "gpio_stimulus", a.get("ok") and b.get("ok"), "toggled BOOT gpio " + str(boot_gpio)
+            )
 
         # teardown
         _http(workbench_base, "/api/wifi/ap_stop", {})
@@ -245,6 +265,7 @@ if __name__ == "__main__":
     import argparse
     import os
     import sys
+
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     ap = argparse.ArgumentParser(description="Run the simulated workbench HIL scenario.")
     ap.add_argument("board")

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """ESP32 adapter - wraps idf.py / esptool / pytest-embedded. (deliverable #12)"""
+
 from __future__ import annotations
 
 from .base import PlatformAdapter

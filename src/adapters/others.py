@@ -6,6 +6,7 @@ The command mappings are the known-good toolchain patterns, but these are
 marked `supported = False` until built and tested on real hardware. They exist
 to prove the abstraction: adding a platform is a new adapter, not a rewrite.
 """
+
 from __future__ import annotations
 
 from .base import PlatformAdapter
@@ -13,7 +14,7 @@ from .base import PlatformAdapter
 
 class Stm32Adapter(PlatformAdapter):
     name = "stm32"
-    supported = False   # experimental: CMake + arm-none-eabi-gcc + OpenOCD
+    supported = False  # experimental: CMake + arm-none-eabi-gcc + OpenOCD
 
     def set_target_cmd(self, chip, path="."):
         # target is selected by the CMake/board config, not a CLI verb
@@ -23,8 +24,15 @@ class Stm32Adapter(PlatformAdapter):
         return ["cmake", "--build", path + "/build"]
 
     def flash_cmd(self, path=".", port=None):
-        return ["openocd", "-f", "interface/stlink.cfg", "-f", "target/stm32.cfg",
-                "-c", "program build/firmware.elf verify reset exit"]
+        return [
+            "openocd",
+            "-f",
+            "interface/stlink.cfg",
+            "-f",
+            "target/stm32.cfg",
+            "-c",
+            "program build/firmware.elf verify reset exit",
+        ]
 
     def monitor_cmd(self, path=".", port=None):
         return ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
@@ -32,7 +40,7 @@ class Stm32Adapter(PlatformAdapter):
 
 class Rp2040Adapter(PlatformAdapter):
     name = "rp2040"
-    supported = False   # experimental: Pico SDK (CMake) + picotool
+    supported = False  # experimental: Pico SDK (CMake) + picotool
 
     def set_target_cmd(self, chip, path="."):
         return ["cmake", "-S", path, "-B", path + "/build"]
@@ -49,7 +57,7 @@ class Rp2040Adapter(PlatformAdapter):
 
 class ZephyrAdapter(PlatformAdapter):
     name = "zephyr"
-    supported = False   # experimental: west + Twister (HIL mirrors pytest-embedded)
+    supported = False  # experimental: west + Twister (HIL mirrors pytest-embedded)
 
     def set_target_cmd(self, chip, path="."):
         return ["west", "build", "-b", chip, path]
@@ -61,5 +69,8 @@ class ZephyrAdapter(PlatformAdapter):
         return ["west", "flash"]
 
     def monitor_cmd(self, path=".", port=None):
-        return ["west", "espressif", "monitor"] if False else \
-               ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
+        return (
+            ["west", "espressif", "monitor"]
+            if False
+            else ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
+        )

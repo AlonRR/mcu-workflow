@@ -21,6 +21,7 @@ Cross-platform:
 `--dry-run` prints every command it would run without executing it, so the
 whole plan is auditable. Exit codes: 0 ok, 1 failure, 2 usage, 127 missing tool.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,8 +41,10 @@ def _augment_path():
     if os.name != "nt":
         return
     pf = os.environ.get("ProgramFiles", r"C:\Program Files")
-    for d in [os.path.join(pf, "usbipd-win"),
-              os.path.join(pf, "Docker", "Docker", "resources", "bin")]:
+    for d in [
+        os.path.join(pf, "usbipd-win"),
+        os.path.join(pf, "Docker", "Docker", "resources", "bin"),
+    ]:
         if os.path.isdir(d) and d not in os.environ.get("PATH", ""):
             os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
 
@@ -53,8 +56,8 @@ DEFAULTS = {
     "container": "mcuflow-cage",
     "agent": "claude --dangerously-skip-permissions",
     "mount_to": "/work",
-    "network": "",          # docker network with the egress proxy (see #7)
-    "https_proxy": "",       # set to enforce allowlisted egress
+    "network": "",  # docker network with the egress proxy (see #7)
+    "https_proxy": "",  # set to enforce allowlisted egress
     "cap_drop_all": True,
     "no_new_privileges": True,
     "non_root": True,
@@ -67,11 +70,11 @@ def load_config(project_dir):
     if cfg_path.exists():
         try:
             import yaml  # type: ignore
+
             data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
             cfg.update({k: v for k, v in data.items() if k in DEFAULTS})
         except ImportError:
-            print("note: cage.yaml present but PyYAML missing; using defaults",
-                  file=sys.stderr)
+            print("note: cage.yaml present but PyYAML missing; using defaults", file=sys.stderr)
     return cfg
 
 
@@ -117,15 +120,27 @@ class Runner:
 
 # --- subcommands -----------------------------------------------------------
 
+
 def _winget(pkg_id):
     """Best-effort winget install; idempotent (already-installed counts as ok)."""
     if not have("winget"):
         return False, "winget not on PATH; cannot auto-install " + pkg_id
     proc = subprocess.run(
-        ["winget", "install", "--id", pkg_id, "-e", "--silent",
-         "--accept-source-agreements", "--accept-package-agreements",
-         "--disable-interactivity"],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        [
+            "winget",
+            "install",
+            "--id",
+            pkg_id,
+            "-e",
+            "--silent",
+            "--accept-source-agreements",
+            "--accept-package-agreements",
+            "--disable-interactivity",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
     blob = (proc.stdout or "").lower()
     ok = proc.returncode == 0 or "already installed" in blob or "no available upgrade" in blob
     return ok, ("winget " + pkg_id + ": " + ("ok" if ok else "FAILED"))
@@ -140,8 +155,11 @@ def cmd_doctor(args, cfg, host_os, runner):
             if not have("usbipd"):
                 print("    " + _winget("dorssel.usbipd-win")[1])
             if not have("docker"):
-                print("    " + _winget("Docker.DockerDesktop")[1]
-                      + "  (reboot/start Docker Desktop before first cage)")
+                print(
+                    "    "
+                    + _winget("Docker.DockerDesktop")[1]
+                    + "  (reboot/start Docker Desktop before first cage)"
+                )
         if have("docker"):
             print("    pulling cage image " + cfg["image"] + " ...")
             rc, _ = runner.run(["docker", "pull", cfg["image"]])
@@ -153,13 +171,18 @@ def cmd_doctor(args, cfg, host_os, runner):
     for tool, required in checks:
         present = have(tool)
         ok = ok and (present or not required)
-        print("  [" + ("ok " if present else "-- ") + "] " + tool
-              + ("" if present else "  (missing)"))
+        print(
+            "  [" + ("ok " if present else "-- ") + "] " + tool + ("" if present else "  (missing)")
+        )
     # Image presence (only meaningful if docker is here and not dry-run).
     if have("docker") and not args.dry_run:
         rc, out = runner.run(["docker", "images", "-q", cfg["image"]])
-        print("  image " + cfg["image"] + ": "
-              + ("present" if out.strip() else "not pulled (will pull on first up)"))
+        print(
+            "  image "
+            + cfg["image"]
+            + ": "
+            + ("present" if out.strip() else "not pulled (will pull on first up)")
+        )
     else:
         print("  image " + cfg["image"] + ": (not checked)")
     print("ready: " + ("yes" if ok else "no - install the missing tool(s) above"))
@@ -171,6 +194,7 @@ def list_serial_host():
     if os.name == "nt":
         try:
             from serial.tools import list_ports  # pyserial
+
             return sorted(p.device for p in list_ports.comports())
         except Exception:
             return []
@@ -197,7 +221,7 @@ def cmd_usb(args, cfg, host_os, runner):
 def windows_usb_steps(busid):
     """Commands that bind+attach a USB device into WSL2 (run by the launcher)."""
     return [
-        ["usbipd", "bind", "--busid", busid],          # one-time, needs admin
+        ["usbipd", "bind", "--busid", busid],  # one-time, needs admin
         ["usbipd", "attach", "--wsl", "--busid", busid],
     ]
 
@@ -213,8 +237,7 @@ def build_run_cmd(cfg, host_os, device, agent_argv, project_dir):
     if cfg["non_root"] and host_os != "windows" and hasattr(os, "getuid"):
         cmd += ["--user", str(os.getuid()) + ":" + str(os.getgid())]  # type: ignore[attr-defined]
     # Project mount.
-    cmd += ["-v", str(Path(project_dir).resolve()) + ":" + cfg["mount_to"],
-            "-w", cfg["mount_to"]]
+    cmd += ["-v", str(Path(project_dir).resolve()) + ":" + cfg["mount_to"], "-w", cfg["mount_to"]]
     # USB device passthrough. Two boards (DUT + satellite) -> two --device maps.
     devs = device if isinstance(device, (list, tuple)) else ([device] if device else [])
     for d in devs:
@@ -226,8 +249,7 @@ def build_run_cmd(cfg, host_os, device, agent_argv, project_dir):
     if cfg["network"]:
         cmd += ["--network", cfg["network"]]
     if cfg["https_proxy"]:
-        cmd += ["-e", "HTTPS_PROXY=" + cfg["https_proxy"],
-                "-e", "HTTP_PROXY=" + cfg["https_proxy"]]
+        cmd += ["-e", "HTTPS_PROXY=" + cfg["https_proxy"], "-e", "HTTP_PROXY=" + cfg["https_proxy"]]
     cmd += [cfg["image"]]
     cmd += agent_argv
     return cmd
@@ -237,9 +259,17 @@ def container_state(cfg, runner):
     """'running', 'stopped', or 'absent' (best-effort; '' under dry-run)."""
     if runner.dry_run or not have("docker"):
         return ""
-    rc, out = runner.run(["docker", "ps", "-a", "--filter",
-                          "name=^" + cfg["container"] + "$",
-                          "--format", "{{.State}}"])
+    rc, out = runner.run(
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            "name=^" + cfg["container"] + "$",
+            "--format",
+            "{{.State}}",
+        ]
+    )
     return out.strip()
 
 
@@ -254,12 +284,12 @@ def cmd_up(args, cfg, host_os, runner):
     state = container_state(cfg, runner)
     if state == "running" and not args.fresh:
         print("Resuming running cage '" + cfg["container"] + "' (exec agent):")
-        return runner.run(["docker", "exec", "-it", cfg["container"]] + agent_argv,
-                          interactive=True)[0]
+        return runner.run(
+            ["docker", "exec", "-it", cfg["container"]] + agent_argv, interactive=True
+        )[0]
     if state == "stopped" and not args.fresh:
         print("Resuming stopped cage '" + cfg["container"] + "':")
-        return runner.run(["docker", "start", "-ai", cfg["container"]],
-                          interactive=True)[0]
+        return runner.run(["docker", "start", "-ai", cfg["container"]], interactive=True)[0]
 
     # Fresh start. Collect one or more boards (DUT + satellite).
     devices = list(args.device or [])
@@ -273,8 +303,10 @@ def cmd_up(args, cfg, host_os, runner):
                 # usbipd attaches devices into WSL in order; name them ttyACM0,1,...
                 devices.append("/dev/ttyACM" + str(i))
         elif not devices:
-            print("note: no --busid/--device given; starting cage without a board "
-                  "(run `usbipd list` then pass --busid for each board).")
+            print(
+                "note: no --busid/--device given; starting cage without a board "
+                "(run `usbipd list` then pass --busid for each board)."
+            )
     elif host_os == "linux":
         if not devices:
             found = list_serial_host()
@@ -283,8 +315,7 @@ def cmd_up(args, cfg, host_os, runner):
                 print("auto-selected board: " + d)
     device = devices
 
-    print("Starting fresh cage '" + cfg["container"] + "' (agent: "
-          + " ".join(agent_argv) + "):")
+    print("Starting fresh cage '" + cfg["container"] + "' (agent: " + " ".join(agent_argv) + "):")
     cmd = build_run_cmd(cfg, host_os, device, agent_argv, args.project)
     return runner.run(cmd, interactive=True)[0]
 
@@ -297,9 +328,11 @@ def cmd_down(args, cfg, host_os, runner):
 
 # --- parsing ---------------------------------------------------------------
 
+
 def build_parser():
-    p = argparse.ArgumentParser(prog="mcuflow up",
-                                description="Launcher: open the cage, pass USB, seat the agent.")
+    p = argparse.ArgumentParser(
+        prog="mcuflow up", description="Launcher: open the cage, pass USB, seat the agent."
+    )
     p.add_argument("--os", default="auto", choices=["auto", "linux", "windows", "macos"])
     p.add_argument("--dry-run", action="store_true", help="print commands without running")
     p.add_argument("--project", type=Path, default=Path("."), help="host project dir")
@@ -309,17 +342,28 @@ def build_parser():
     sub = p.add_subparsers(dest="cmd")
 
     u = sub.add_parser("up", help="start or resume the cage (default)")
-    u.add_argument("--device", action="append", default=None,
-                   help="serial device to pass through (repeat for DUT + satellite)")
-    u.add_argument("--busid", action="append", default=None,
-                   help="(Windows) usbipd bus id to attach (repeat for two boards)")
+    u.add_argument(
+        "--device",
+        action="append",
+        default=None,
+        help="serial device to pass through (repeat for DUT + satellite)",
+    )
+    u.add_argument(
+        "--busid",
+        action="append",
+        default=None,
+        help="(Windows) usbipd bus id to attach (repeat for two boards)",
+    )
     u.add_argument("--fresh", action="store_true", help="ignore any existing cage")
     u.set_defaults(func=cmd_up)
 
     dp = sub.add_parser("doctor", help="check prerequisites")
-    dp.add_argument("--fix", action="store_true",
-                    help="install missing cage prerequisites (usbipd-win, Docker) "
-                         "and pull the ESP-IDF image before checking")
+    dp.add_argument(
+        "--fix",
+        action="store_true",
+        help="install missing cage prerequisites (usbipd-win, Docker) "
+        "and pull the ESP-IDF image before checking",
+    )
     dp.set_defaults(func=cmd_doctor)
     sub.add_parser("usb", help="list boards / passthrough plan").set_defaults(func=cmd_usb)
     sub.add_parser("down", help="stop and remove the cage").set_defaults(func=cmd_down)

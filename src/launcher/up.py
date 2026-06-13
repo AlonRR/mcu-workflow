@@ -54,7 +54,9 @@ _augment_path()
 DEFAULTS = {
     "image": "espressif/idf:release-v6.0",
     "container": "mcuflow-cage",
-    "agent": "claude --dangerously-skip-permissions",
+    # No implicit agent: it must be defined before entry (cage.yaml `agent:` or
+    # --agent). The launcher is agent-agnostic, so it won't pick one for you.
+    "agent": "",
     "mount_to": "/work",
     "network": "",  # docker network with the egress proxy (see #7)
     "https_proxy": "",  # set to enforce allowlisted egress
@@ -278,7 +280,17 @@ def cmd_up(args, cfg, host_os, runner):
         print("x docker not found. Run `mcuflow up doctor`.", file=sys.stderr)
         return EXIT_NOTOOL
 
-    agent_argv = (args.agent or cfg["agent"]).split()
+    # The in-cage agent must be defined before entry - the launcher won't choose
+    # one. Set it in cage.yaml (`agent: ...`) or pass --agent "<command>".
+    agent = (args.agent or cfg["agent"] or "").strip()
+    if not agent:
+        print(
+            "x no in-cage agent defined. Set `agent:` in cage.yaml or pass "
+            '--agent "<command>" (e.g. --agent bash).',
+            file=sys.stderr,
+        )
+        return EXIT_USAGE
+    agent_argv = agent.split()
 
     # Resume an existing cage if present (workspace mount persists).
     state = container_state(cfg, runner)

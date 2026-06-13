@@ -46,8 +46,12 @@ docker run --rm -it --name mcuflow-cage \
   --cap-drop ALL --security-opt no-new-privileges --user <uid:gid> \
   -v <project>:/work -w /work \
   --device /dev/ttyACM0 --group-add dialout \
-  espressif/idf:release-v6.0  claude --dangerously-skip-permissions
+  espressif/idf:release-v6.0  <agent-command>
 ```
+
+The `<agent-command>` must be defined before entry — set `agent:` in `cage.yaml`
+or pass `--agent "<command>"`. The launcher is agent-agnostic and will refuse to
+start without one (the base image's only built-in command is `bash`).
 
 Inside that box the agent has free rein; the worst case is "rebuild the cage." Full egress enforcement (allowlisting proxy + docker network) is deliverable #7 — set `network`/`https_proxy` in `cage.yaml` to route through it.
 

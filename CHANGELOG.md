@@ -25,6 +25,12 @@ All notable changes are documented here. The format follows
   `run` go through the platform adapter (`get_adapter(meta.platform)`), and
   `scaffold` dispatches by platform. ESP-IDF remains the only implementation, but
   adding a platform is now a contained adapter + generator (no CLI changes).
+- The cage image + cage-build + host-flash now live on the platform adapter
+  (`cage_image`/`toolchain_tools`/`cage_build_cmd`/`host_flash_cmd`), so each
+  platform owns its toolchain and `doctor` asks the adapter what to provision.
+- The launcher requires the in-cage agent to be defined before entry (cage.yaml
+  `agent:` or `--agent`); no implicit Claude default.
+- Workbench default port moved off the collision-prone `8080` to `6283`.
 
 ## [0.2.0]
 

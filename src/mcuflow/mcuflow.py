@@ -276,94 +276,19 @@ def _sim_result(verb, lines, **extra):
     return res
 
 
-# --- cage build / host flash -----------------------------------------------
-# When there is no native idf.py, build inside the ESP-IDF Docker image (no USB
-# needed for a build) and flash from the host with esptool over the COM port.
-# This is the Windows-friendly path: it avoids the fragile usbipd->WSL2->Docker
-# USB bridge for the C3's native USB-Serial/JTAG, which shows up on the host as
-# a plain COM port that esptool/pyserial can drive directly.
+# --- containerized toolchain (cage) ----------------------------------------
+# When the native toolchain isn't on the host, a platform's adapter can build
+# inside its cage image and/or flash from the host (for esp32: idf.py in the
+# ESP-IDF image, esptool over the COM port). The conductor just runs the argv
+# the adapter returns - the platform owns its toolchain/image.
 
 
-def _cage_available():
-    """True if we can build in the cage (docker up + image pulled)."""
-    if shutil.which("docker") is None or not _docker_running():
+def _cage_available(image):
+    """True if the cage can run: docker is up and `image` is pulled."""
+    if not image or shutil.which("docker") is None or not _docker_running():
         return False
-    rc, out, _e = _run(["docker", "images", "-q", _cage_image()])
+    rc, out, _e = _run(["docker", "images", "-q", image])
     return rc == 0 and bool(out.strip())
-
-
-def _cage_shell(shell_cmd, project_dir):
-    """Run a shell command inside the cage image with project_dir at /work.
-    The image entrypoint sources the ESP-IDF env before exec, so `idf.py` is on
-    PATH inside the shell."""
-    mount = str(Path(project_dir).resolve())
-    cmd = [
-        "docker",
-        "run",
-        "--rm",
-        "-v",
-        mount + ":/work",
-        "-w",
-        "/work",
-        _cage_image(),
-        "bash",
-        "-c",
-        shell_cmd,
-    ]
-    return _run(cmd)
-
-
-def _idf_in_cage(idf_args, project_dir):
-    """Run a single `idf.py <idf_args>` inside the cage image."""
-    mount = str(Path(project_dir).resolve())
-    cmd = [
-        "docker",
-        "run",
-        "--rm",
-        "-v",
-        mount + ":/work",
-        "-w",
-        "/work",
-        _cage_image(),
-        "idf.py",
-    ] + list(idf_args)
-    return _run(cmd)
-
-
-def _cage_build(project_dir, chip):
-    """set-target (first time) then build, inside the cage. set-target and build
-    are run as separate idf.py invocations (chained) - combining them in one
-    invocation can leave the project configured but not actually built."""
-    proj = Path(project_dir)
-    need_target = not (proj / "sdkconfig").exists()
-    if need_target:
-        shell = "idf.py set-target " + chip + " && idf.py build"
-    else:
-        shell = "idf.py build"
-    return _cage_shell(shell, project_dir)
-
-
-def _host_flash(project_dir, port, chip):
-    """Flash a built project from the host with esptool via flasher_args.json."""
-    build_dir = Path(project_dir) / "build"
-    fa_path = build_dir / "flasher_args.json"
-    if not fa_path.exists():
-        return 1, "", ("flasher_args.json not in " + str(build_dir) + " - build the project first")
-    try:
-        fa = json.loads(fa_path.read_text(encoding="utf-8"))
-    except Exception as e:
-        return 1, "", "could not read flasher_args.json: " + str(e)
-    files = fa.get("flash_files") or {}
-    if not files:
-        return 1, "", "no flash_files in flasher_args.json"
-    pairs = []
-    for off, rel in sorted(files.items(), key=lambda kv: int(kv[0], 16)):
-        pairs += [off, str((build_dir / rel).resolve())]
-    cmd = [sys.executable, "-m", "esptool", "--chip", chip]
-    if port:
-        cmd += ["-p", port]
-    cmd += ["--before", "default_reset", "--after", "hard_reset", "write_flash"] + pairs
-    return _run(cmd)
 
 
 def verb_build(args):
@@ -375,19 +300,19 @@ def verb_build(args):
         ]
         return emit(_sim_result("build", lines, bin_bytes=203808, warnings=0), args.json, lines)
     platform = getattr(args, "platform", None) or "esp32"
-    cmd = _adapter(platform).build_cmd(str(args.path))
+    adapter = _adapter(platform)
+    cmd = adapter.build_cmd(str(args.path))
     # Native toolchain on the host (idf.py for esp32; cmake/west/... for others).
     if shutil.which(cmd[0]) is not None:
         return _run_verb("build", cmd, args)
-    # ESP-IDF has a no-host-toolchain path: build inside the Docker cage.
-    if platform == "esp32" and _cage_available():
-        chip = getattr(args, "chip", None) or "esp32c3"
-        rc, out, err = _cage_build(args.path, chip)
+    # No host toolchain: build inside the platform's cage image if it has one.
+    image = _cage_image(adapter)
+    chip = getattr(args, "chip", None) or "esp32c3"
+    cage_cmd = adapter.cage_build_cmd(str(args.path), chip, image)
+    if cage_cmd is not None and _cage_available(image):
+        rc, out, err = _run(cage_cmd)
         ok = rc == 0
-        lines = [
-            "[cage] idf.py build (" + _cage_image() + ", target " + chip + ")",
-            (out + err).rstrip(),
-        ]
+        lines = ["[cage] build (" + image + ", target " + chip + ")", (out + err).rstrip()]
         return emit(
             {
                 "verb": "build",
@@ -413,19 +338,28 @@ def verb_flash(args):
         ]
         return emit(_sim_result("flash", lines, port=port), args.json, lines)
     platform = getattr(args, "platform", None) or "esp32"
-    cmd = _adapter(platform).flash_cmd(str(args.path), getattr(args, "port", None))
+    adapter = _adapter(platform)
+    cmd = adapter.flash_cmd(str(args.path), getattr(args, "port", None))
     # Native toolchain on the host (idf.py for esp32; openocd/picotool/... else).
     if shutil.which(cmd[0]) is not None:
         return _run_verb("flash", cmd, args)
-    if platform != "esp32":
-        return _run_verb("flash", cmd, args)  # missing-tool error for cmd[0]
-    # ESP-IDF fallback: flash from the host with esptool over the COM port (works
-    # for the C3's native USB-Serial/JTAG without usbipd).
+    # No host toolchain: flash already-built artifacts from the host if the
+    # platform supports it (esp32: esptool over the COM port).
     chip = getattr(args, "chip", None) or "esp32c3"
-    rc, out, err = _host_flash(args.path, args.port, chip)
+    try:
+        hf = adapter.host_flash_cmd(str(args.path), args.port, chip, sys.executable)
+    except Exception as e:
+        return emit(
+            {"verb": "flash", "ok": False, "exit_code": EXIT_FAIL, "detail": str(e)},
+            args.json,
+            ["x " + str(e)],
+        )
+    if hf is None:
+        return _run_verb("flash", cmd, args)  # unsupported -> missing-tool error for cmd[0]
+    rc, out, err = _run(hf)
     ok = rc == 0
     lines = [
-        "[host] esptool write_flash (chip " + chip + ", port " + str(args.port) + ")",
+        "[host] flash (chip " + chip + ", port " + str(args.port) + ")",
         (out + err).rstrip(),
     ]
     return emit(
@@ -433,7 +367,7 @@ def verb_flash(args):
             "verb": "flash",
             "ok": ok,
             "exit_code": rc,
-            "host_esptool": True,
+            "host_flash": True,
             "chip": chip,
             "port": args.port,
             "detail": (out + err).strip(),
@@ -594,8 +528,10 @@ def verb_run(args):
     chip = (board.get("meta") or {}).get("chip") or "esp32c3"
     adapter = _adapter(platform)
 
-    # 3. build  (native toolchain via the adapter; else, for esp32, in the cage).
+    # 3. build  (native toolchain via the adapter; else the platform's cage image).
     build_cmd = adapter.build_cmd(str(out_dir))
+    image = _cage_image(adapter)
+    cage_cmd = adapter.cage_build_cmd(str(out_dir), chip, image)
     if args.sim:
         add("build", EXIT_OK, "[sim] build ok")
     elif shutil.which(build_cmd[0]) is not None:
@@ -603,8 +539,8 @@ def verb_run(args):
         add("build", rc, (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
-    elif platform == "esp32" and _cage_available():
-        rc, o, e = _cage_build(out_dir, chip)
+    elif cage_cmd is not None and _cage_available(image):
+        rc, o, e = _run(cage_cmd)
         add("build", rc, "[cage " + chip + "] " + (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
@@ -616,7 +552,7 @@ def verb_run(args):
         )
         return finish(EXIT_NOTOOL)
 
-    # 4. flash  (native toolchain via the adapter; else, for esp32, host esptool).
+    # 4. flash  (native toolchain via the adapter; else the platform's host flash).
     port = getattr(args, "port", None)
     flash_cmd = adapter.flash_cmd(str(out_dir), port)
     if args.sim:
@@ -626,14 +562,19 @@ def verb_run(args):
         add("flash", rc, (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
-    elif platform == "esp32":
-        rc, o, e = _host_flash(out_dir, port, chip)
-        add("flash", rc, "[host esptool] " + (o + e).strip())
+    else:
+        try:
+            hf = adapter.host_flash_cmd(str(out_dir), port, chip, sys.executable)
+        except Exception as e:
+            add("flash", EXIT_FAIL, str(e))
+            return finish(EXIT_FAIL)
+        if hf is None:
+            add("flash", EXIT_NOTOOL, "no " + flash_cmd[0] + " on PATH for flashing")
+            return finish(EXIT_NOTOOL)
+        rc, o, e = _run(hf)
+        add("flash", rc, "[host flash] " + (o + e).strip())
         if rc != EXIT_OK:
             return finish(EXIT_FAIL)
-    else:
-        add("flash", EXIT_NOTOOL, "no " + flash_cmd[0] + " on PATH for flashing")
-        return finish(EXIT_NOTOOL)
 
     # 5. hil (workbench-mediated). sim by default; real needs --workbench.
     needs_sat = (board.get("rig") or {}).get("satellite") == "required" or "wifi" in (
@@ -869,9 +810,12 @@ def _docker_pull(image):
     )
 
 
-def _cage_image():
-    """The ESP-IDF cage image the launcher uses (kept in sync with cage.yaml)."""
-    img = "espressif/idf:release-v6.0"
+def _cage_image(adapter=None):
+    """The platform's headless toolchain image. Defaults to the adapter's
+    `cage_image` (the platform owns it), with a cage.yaml `image:` override."""
+    if adapter is None:
+        adapter = _adapter("esp32")
+    img = adapter.cage_image
     try:
         import yaml  # type: ignore
 
@@ -1071,9 +1015,11 @@ def verb_doctor(args):
     if getattr(args, "fix", False):
         fix_log = _doctor_fix(host_is_windows=(os.name == "nt"))
 
+    # Toolchain binaries to check: the platform adapter names its own (esp32 ->
+    # idf.py/esptool), plus the generic ones every platform shares.
+    platform_tools = list(_adapter("esp32").toolchain_tools)
     tools = {
-        t: shutil.which(t)
-        for t in ["idf.py", "esptool", "pytest", "cmake", "ninja", "git", "docker"]
+        t: shutil.which(t) for t in platform_tools + ["pytest", "cmake", "ninja", "git", "docker"]
     }
     # Python deps (incl. esptool) live in the .venv - check there, not just PATH.
     mods = _module_status(["yaml", "jsonschema", "serial", "esptool"])

@@ -28,7 +28,7 @@ Work in this order, and **stop and show me the output at each checkpoint**:
    the **DUT**. Report both ports.
 
 4. With the satellite confirmed and its workbench running, do the DUT loop:
-   `mcuflow run examples/board-c3.yml --port <DUT_PORT> --workbench http://127.0.0.1:8080`
+   `mcuflow run examples/board-c3.yml --port <DUT_PORT> --workbench http://127.0.0.1:6283`
    (no `--sim`).
 
 5. Read the **DUT serial** (`idf.py -p <DUT_PORT> monitor`) and confirm two

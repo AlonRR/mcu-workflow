@@ -10,9 +10,9 @@ The golden rule for "sim vs real" is a single flag:
 
 | Stage | Simulated (no hardware) | Real hardware |
 |---|---|---|
-| pipeline | `mcuflow --sim run board-c3.yml` | `mcuflow run board-c3.yml --port COM4 --workbench http://127.0.0.1:8080` |
+| pipeline | `mcuflow --sim run board-c3.yml` | `mcuflow run board-c3.yml --port COM4 --workbench http://127.0.0.1:6283` |
 | workbench | `mcuflow workbench --satellite sim` | `mcuflow workbench --satellite COM5` |
-| HIL | `mcuflow hil board-c3.yml` | `mcuflow hil board-c3.yml --workbench http://127.0.0.1:8080` |
+| HIL | `mcuflow hil board-c3.yml` | `mcuflow hil board-c3.yml --workbench http://127.0.0.1:6283` |
 
 ---
 
@@ -117,8 +117,8 @@ Sanity-check it speaks the protocol:
 ```
 mcuflow workbench --satellite COM5
 # in another shell:
-curl -X POST http://127.0.0.1:8080/api/satellite/ping      # -> {"ok":true,"fw":"sat-0.1"}
-curl -X POST http://127.0.0.1:8080/api/wifi/scan
+curl -X POST http://127.0.0.1:6283/api/satellite/ping      # -> {"ok":true,"fw":"sat-0.1"}
+curl -X POST http://127.0.0.1:6283/api/wifi/scan
 ```
 
 ---
@@ -147,7 +147,7 @@ mcuflow workbench --satellite /dev/ttyACM1 &
 # build + flash + boot-test the DUT, driving the real satellite for radio tests
 mcuflow run examples/board-c3.yml \
         --port /dev/ttyACM0 \
-        --workbench http://127.0.0.1:8080
+        --workbench http://127.0.0.1:6283
 ```
 
 What is real vs. still to come at this step:

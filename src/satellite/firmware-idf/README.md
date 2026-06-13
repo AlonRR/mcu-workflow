@@ -9,7 +9,7 @@ idf.py set-target esp32c3
 idf.py -p <SAT_PORT> flash
 # verify over the workbench:
 mcuflow workbench --satellite <SAT_PORT> &
-curl -X POST http://127.0.0.1:8080/api/satellite/ping     # {"ok":true,"fw":"sat-idf-0.1"}
+curl -X POST http://127.0.0.1:6283/api/satellite/ping     # {"ok":true,"fw":"sat-idf-0.1"}
 ```
 
 Implements: `ping`, `caps`, `wifi.ap_start|ap_stop|scan`, `gpio.set|get`.

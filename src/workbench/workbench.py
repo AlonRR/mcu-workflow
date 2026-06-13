@@ -24,7 +24,7 @@ Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/gpio/set           {pin, value}                -> {"ok": true}
   /api/gpio/get           {pin}                       -> {"ok": true, "value": ...}
 
-Run:  python workbench.py --port 8080                       # binds 0.0.0.0
+Run:  python workbench.py --port 6283                       # binds 0.0.0.0
       python workbench.py --satellite sim                   # emulated radios
       python workbench.py --satellite /dev/ttyACM1          # real satellite
 """
@@ -234,7 +234,8 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="mcuflow workbench service")
-    ap.add_argument("--port", type=int, default=8080)
+    # 6283: an uncommon default (8080 collides with too many other dev tools).
+    ap.add_argument("--port", type=int, default=6283)
     ap.add_argument(
         "--host",
         default="0.0.0.0",

@@ -33,7 +33,7 @@ download mode or a captive-portal boot; always release pins (`value:"z"`).
 `GET /api/udplog?source=<ip>` instead of the serial monitor.
 
 **OTA.** `POST /api/firmware/upload` then point the DUT's OTA URL at
-`http://<workbench>:8080/firmware/<project>/<file>.bin`.
+`http://<workbench>:6283/firmware/<project>/<file>.bin`.
 
 ## Rules
 

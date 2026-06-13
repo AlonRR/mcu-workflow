@@ -16,6 +16,12 @@ class PlatformAdapter:
     name = "base"
     supported = False  # True once the adapter is real and tested
 
+    # The headless toolchain image and the host tools this platform needs. The
+    # conductor pulls `cage_image` and `doctor` checks `toolchain_tools`, so a
+    # platform owns its own toolchain/provisioning - the CLI stays generic.
+    cage_image = None
+    toolchain_tools = ()
+
     def set_target_cmd(self, chip, path="."):
         raise NotImplementedError
 
@@ -34,3 +40,15 @@ class PlatformAdapter:
         if target:
             cmd += ["--target", target]
         return cmd + [str(pyfile)]
+
+    # --- no-native-toolchain fallbacks (also just return argv) -----------------
+    def cage_build_cmd(self, project_dir, chip, image):
+        """docker argv to build `project_dir` inside `image` (no host toolchain).
+        Return None if this platform has no containerized build."""
+        return None
+
+    def host_flash_cmd(self, project_dir, port, chip, python):
+        """argv to flash already-built artifacts from the host (no host
+        toolchain). Return None if unsupported; raise if the project isn't built
+        yet (the message is surfaced to the user)."""
+        return None

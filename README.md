@@ -117,6 +117,10 @@ rationale behind each decision.
 - **[agents/](agents/)** — onboarding brief, the portable project "memory"
   (handoff), and skill descriptors, for AI coding agents.
 
+## Development
+
+Parts of this project were developed with the assistance of an AI coding agent.
+
 ## License
 
 Not yet licensed. Until a `LICENSE` is added, all rights are reserved — open an

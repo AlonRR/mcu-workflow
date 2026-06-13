@@ -30,3 +30,6 @@ build-out/
 # OS
 Thumbs.db
 .DS_Store
+
+# editor settings (machine-local)
+.vscode/

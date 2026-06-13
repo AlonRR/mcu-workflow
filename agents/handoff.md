@@ -135,7 +135,7 @@ DUT's serial to confirm the join on-silicon is the next integration layer.
 
 On-hardware verification is the remaining step (the sandbox can't compile C / reach
 USB): build+flash both C3s and run `mcuflow run board-c3.yml --port <DUT>
---workbench http://127.0.0.1:8080` per `docs/runbook-c3.md` / `CLAUDE.md`.
+--workbench http://127.0.0.1:6283` per `docs/runbook-c3.md` / `CLAUDE.md`.
 
 ## Update — 2026-06-12 (session 3): ran it on the real two C3s
 
@@ -156,7 +156,7 @@ self-installs and runs end to end on real silicon; the codebase is under git
   managed `espressif/cjson`; the split `esp_driver_*` components are required
   explicitly; `LINE_MAX` renamed.
 - **Full run is green on hardware.** `mcuflow run board-c3.yml --port <DUT>
-  --workbench http://127.0.0.1:8080` reports **5/5 stages PASS**: validate,
+  --workbench http://127.0.0.1:6283` reports **5/5 stages PASS**: validate,
   scaffold, build (cage), flash (host esptool), and hil — where the hil reads the
   *real* DUT serial and confirms `app_main started` plus
   `wifi: connected to 'mcuflow-test', got ip 192.168.4.2` while the real satellite

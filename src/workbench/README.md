@@ -5,7 +5,7 @@ Turns any **Python + USB host** (Raspberry Pi, mini-PC, an old laptop, the dev b
 ## Run
 
 ```bash
-python workbench.py --port 8080                 # binds 0.0.0.0 for the LAN
+python workbench.py --port 6283                 # binds 0.0.0.0 for the LAN
 python workbench.py --enable wifi,ble,gpio      # advertise satellite-backed instruments
 ```
 

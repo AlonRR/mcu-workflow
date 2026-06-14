@@ -101,7 +101,7 @@ class Runner:
     def __init__(self, dry_run):
         self.dry_run = dry_run
 
-    def run(self, cmd, interactive=False, check=False):
+    def run(self, cmd, interactive=False, check=False, quiet=False):
         printable = " ".join(cmd)
         if self.dry_run:
             print("  $ " + printable)
@@ -113,7 +113,10 @@ class Runner:
             text=True,
         )
         out = proc.stdout or ""
-        if not interactive and out:
+        # `quiet` captures output for the caller to interpret without echoing it
+        # (used for probes like image presence, where a daemon-down error would
+        # otherwise leak mid-report).
+        if not interactive and not quiet and out:
             print(out, end="")
         if check and proc.returncode != 0:
             raise SystemExit(proc.returncode)
@@ -148,6 +151,18 @@ def _winget(pkg_id):
     return ok, ("winget " + pkg_id + ": " + ("ok" if ok else "FAILED"))
 
 
+def image_status(rc, out):
+    """Interpret a `docker images -q <image>` probe (rc, captured output).
+
+    Gates on rc so a daemon-down error (non-zero rc, error text on stdout) is
+    never mistaken for an image id - the bug where any non-empty output read as
+    'present'.
+    """
+    if rc != 0:
+        return "docker daemon not reachable (start Docker, then re-check)"
+    return "present" if out.strip() else "not pulled (will pull on first up)"
+
+
 def cmd_doctor(args, cfg, host_os, runner):
     print("Launcher preflight (" + host_os + "):")
     # With --fix the launcher installs its own cage prerequisites first.
@@ -178,13 +193,8 @@ def cmd_doctor(args, cfg, host_os, runner):
         )
     # Image presence (only meaningful if docker is here and not dry-run).
     if have("docker") and not args.dry_run:
-        rc, out = runner.run(["docker", "images", "-q", cfg["image"]])
-        print(
-            "  image "
-            + cfg["image"]
-            + ": "
-            + ("present" if out.strip() else "not pulled (will pull on first up)")
-        )
+        rc, out = runner.run(["docker", "images", "-q", cfg["image"]], quiet=True)
+        print("  image " + cfg["image"] + ": " + image_status(rc, out))
     else:
         print("  image " + cfg["image"] + ": (not checked)")
     print("ready: " + ("yes" if ok else "no - install the missing tool(s) above"))

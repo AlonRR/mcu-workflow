@@ -34,6 +34,8 @@ All notable changes are documented here. The format follows
 - Workbench OTA serving: `POST /api/firmware/upload` (base64), `GET /api/firmware`,
   and `GET /firmware/<name>` so a DUT can pull an update over HTTP; `--firmware-dir`
   sets the store.
+- Embedded MQTT broker (stdlib, QoS 0) on TCP 1883 (`--mqtt-port`), with
+  `/api/mqtt/publish` and `/api/mqtt/recent` - no mosquitto needed.
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

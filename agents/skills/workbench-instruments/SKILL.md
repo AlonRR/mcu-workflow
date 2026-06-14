@@ -19,11 +19,13 @@ present.
 
 Read-only: `GET /api/health`, `/api/info`, `/api/capabilities`, `/api/devices`
 (discovered serial slots), `/api/satellite/caps`, `/api/udplog` (device logs
-received over UDP), `/api/firmware` + `/firmware/<name>` (OTA images).
+received over UDP), `/api/firmware` + `/firmware/<name>` (OTA images),
+`/api/mqtt/recent`.
 
 Actions (POST): `/api/satellite/ping`, `/api/wifi/ap_start`, `/api/wifi/ap_stop`,
 `/api/wifi/scan`, `/api/gpio/set`, `/api/gpio/get`, `/api/siggen/start`,
-`/api/siggen/stop`, `/api/firmware/upload`.
+`/api/siggen/stop`, `/api/firmware/upload`, `/api/mqtt/publish`. The workbench
+also runs an embedded MQTT broker on TCP 1883.
 
 ## Common patterns
 
@@ -71,6 +73,13 @@ GET  /api/firmware                      # list available images
 GET  /firmware/app-v2.bin              # the DUT downloads this
 ```
 
+**MQTT.** The workbench runs an embedded broker (TCP 1883). A DUT (or any MQTT
+client) connects there to pub/sub; you can inject and inspect from the API:
+```
+POST /api/mqtt/publish {"topic":"sensors/temp","payload":"24.1"}
+GET  /api/mqtt/recent                    # messages the broker has seen
+```
+
 **Satellite health.** `POST /api/satellite/ping` -> `{"ok":true,"fw":...}`;
 `GET /api/satellite/caps` for what the attached satellite reports.
 
@@ -84,7 +93,7 @@ GET  /firmware/app-v2.bin              # the DUT downloads this
 
 ## Not yet available here
 
-BLE, MQTT, and an HTTP-through-AP proxy are **not** implemented in this workbench
-(see `agents/skills/README.md` "Planned"). Don't call endpoints for them - check
+BLE and an HTTP-through-AP proxy are **not** implemented in this workbench (see
+`agents/skills/README.md` "Planned"). Don't call endpoints for them - check
 `/api/capabilities` and skip. (Network flashing over RFC2217 is available
 separately via `mcuflow bridge`.)

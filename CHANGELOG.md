@@ -50,6 +50,14 @@ All notable changes are documented here. The format follows
 - `up doctor` no longer mistakes a down Docker daemon's error text for an image
   id (false "present"); it reports the daemon as unreachable and the readiness
   line says to start Docker rather than "yes".
+- Launcher rejects a single-subcommand flag on the wrong subcommand (e.g.
+  `mcuflow up --fix`, a typo for `up doctor --fix`, no longer silently starts a
+  cage), and warns that `--busid`/`--device` are ignored when resuming a cage.
+- The up/workbench passthrough skip-set is derived from the parser, so adding a
+  global flag can't silently re-break leading-global forwarding.
+- `run` surfaces a real port-detection failure as a failed stage instead of
+  masking it as "no board" and flashing the toolchain default; `doctor` and
+  `mcuflow ports` now report the same connected-board list.
 
 ## [0.2.0]
 

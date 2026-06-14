@@ -64,6 +64,13 @@ def test_no_board():
     assert "no ESP32" in reason
 
 
+def test_roles_to_ports_decodes_mapping():
+    mapping, _ = pv.suggest_roles([C3_A, C3_B])
+    assert pv.roles_to_ports(mapping) == ("COM3", "COM7")
+    assert pv.roles_to_ports({"COM3": "DUT"}) == ("COM3", None)
+    assert pv.roles_to_ports({}) == (None, None)
+
+
 def test_render_commands_pairs_dut_and_satellite():
     mapping, _ = pv.suggest_roles([C3_A, C3_B])
     cmds = pv.render_commands(mapping)

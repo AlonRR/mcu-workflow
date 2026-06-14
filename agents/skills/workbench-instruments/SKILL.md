@@ -18,10 +18,12 @@ present.
 ## What the API actually provides
 
 Read-only: `GET /api/health`, `/api/info`, `/api/capabilities`, `/api/devices`
-(discovered serial slots), `/api/satellite/caps`.
+(discovered serial slots), `/api/satellite/caps`, `/api/udplog` (device logs
+received over UDP).
 
 Actions (POST): `/api/satellite/ping`, `/api/wifi/ap_start`, `/api/wifi/ap_stop`,
-`/api/wifi/scan`, `/api/gpio/set`, `/api/gpio/get`.
+`/api/wifi/scan`, `/api/gpio/set`, `/api/gpio/get`, `/api/siggen/start`,
+`/api/siggen/stop`.
 
 ## Common patterns
 
@@ -47,6 +49,19 @@ POST /api/gpio/set {"pin":<en_pin>,"value":1}          # ... to reset
 POST /api/gpio/get {"pin":<dut_boot_gpio>}
 ```
 
+**Signal generator (PWM).** Drive a square wave on a satellite pin:
+```
+POST /api/siggen/start {"pin":4,"freq":2000,"duty":25}   # Hz, duty 0-100
+POST /api/siggen/stop
+```
+
+**UDP logging.** When the DUT's USB serial is busy (HID gadget, mid-OTA), have
+its firmware ship log lines as UDP datagrams to `<workbench-ip>:6284`, then read
+them back:
+```
+GET /api/udplog?source=<dut-ip>&n=100   -> {"ok":true,"lines":[{t,src,line}]}
+```
+
 **Satellite health.** `POST /api/satellite/ping` -> `{"ok":true,"fw":...}`;
 `GET /api/satellite/caps` for what the attached satellite reports.
 
@@ -60,7 +75,7 @@ POST /api/gpio/get {"pin":<dut_boot_gpio>}
 
 ## Not yet available here
 
-BLE, MQTT, OTA, UDP logging, and an HTTP-through-AP proxy are **not** implemented
-in this workbench (see `agents/skills/README.md` "Planned"). Don't call endpoints
-for them - check `/api/capabilities` and skip. (Network flashing over RFC2217 is
+BLE, MQTT, OTA, and an HTTP-through-AP proxy are **not** implemented in this
+workbench (see `agents/skills/README.md` "Planned"). Don't call endpoints for
+them - check `/api/capabilities` and skip. (Network flashing over RFC2217 is
 available separately via `mcuflow bridge`.)

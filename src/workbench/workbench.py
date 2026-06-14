@@ -15,6 +15,7 @@ Read endpoints (GET, JSON):
   /api/capabilities       which instruments this host provides
   /api/devices            discovered serial slots (chip, port, url)
   /api/satellite/caps     capabilities reported by the attached satellite
+  /api/udplog?source&n    device logs received over UDP (newest n; filter by ip)
 
 Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/satellite/ping     -> {"ok": true, "fw": ...}
@@ -43,12 +44,33 @@ import socket
 import sys
 import threading
 import time
+from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 # Make the repo root importable so `satellite.host...` resolves when run directly.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 START = time.time()
+
+# Device logs received over UDP (read at /api/udplog). A board can ship its log
+# lines to the workbench when its USB serial is busy (HID gadget, mid-OTA); the
+# firmware just sends UDP datagrams to <workbench-ip>:<udp_port>.
+UDP_LOG = deque(maxlen=2000)
+
+
+def _udp_log_listener(host, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((host, port))
+    while True:
+        try:
+            data, addr = sock.recvfrom(2048)
+        except OSError:
+            break
+        for line in data.decode("utf-8", "replace").splitlines():
+            if line:
+                UDP_LOG.append({"t": round(time.time() - START, 1), "src": addr[0], "line": line})
 
 
 def open_satellite(spec):
@@ -190,6 +212,15 @@ class Handler(BaseHTTPRequestHandler):
             if not self._need_sat():
                 return
             self._send(self._sat_call(lambda s: s.caps()))
+        elif self.path.startswith("/api/udplog"):
+            q = parse_qs(urlparse(self.path).query)
+            src = q.get("source", [None])[0]
+            try:
+                n = int(q.get("n", ["100"])[0])
+            except ValueError:
+                n = 100
+            rows = [r for r in UDP_LOG if src is None or r["src"] == src]
+            self._send({"ok": True, "lines": rows[-n:]})
         else:
             self._send({"ok": False, "error": "not found: " + self.path}, code=404)
 
@@ -267,7 +298,15 @@ def main(argv=None):
         default=os.environ.get("WORKBENCH_CAPS", ""),
         help="force-advertise extra capabilities (comma list)",
     )
+    ap.add_argument(
+        "--udp-port",
+        type=int,
+        default=6284,
+        help="UDP port to collect device logs on (read at /api/udplog)",
+    )
     args = ap.parse_args(argv)
+
+    threading.Thread(target=_udp_log_listener, args=(args.host, args.udp_port), daemon=True).start()
 
     satellite, sat_info = open_satellite(args.satellite.strip() or None)
     extra = [c.strip() for c in args.enable.split(",") if c.strip()]

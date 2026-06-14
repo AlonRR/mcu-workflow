@@ -1263,10 +1263,19 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     # Delegate wrapped tools before argparse, so their own flags pass through
     # cleanly (e.g. `mcuflow workbench --satellite sim`, `mcuflow up --dry-run`).
-    if argv and argv[0] == "up":
-        return _load_sibling("mcuflow_launcher", "launcher/up.py").main(argv[1:])
-    if argv and argv[0] == "workbench":
-        return _load_sibling("mcuflow_workbench", "workbench/workbench.py").main(argv[1:])
+    # Skip any leading global flags first so this also fires for
+    # `mcuflow --sim up ...`; argparse's REMAINDER would otherwise drop the
+    # leading passthrough option (bpo-17050).
+    passthrough = {
+        "up": ("mcuflow_launcher", "launcher/up.py"),
+        "workbench": ("mcuflow_workbench", "workbench/workbench.py"),
+    }
+    i = 0
+    while i < len(argv) and argv[i] in ("--json", "--sim"):
+        i += 1
+    if i < len(argv) and argv[i] in passthrough:
+        mod, rel = passthrough[argv[i]]
+        return _load_sibling(mod, rel).main(argv[i + 1 :])
     parser = build_parser()
     args = parser.parse_args(argv)
     if not hasattr(args, "sim"):

@@ -44,6 +44,23 @@ CASES = [
         ],
         0,
     ),
+    # a global before `up` must still forward to the launcher (the leading-option
+    # passthrough that argparse REMAINDER used to drop).
+    (
+        "sim_up_forwarding",
+        [
+            "--sim",
+            "up",
+            "--os",
+            "linux",
+            "--dry-run",
+            "--project",
+            str(ROOT),
+            "--device",
+            "/dev/ttyACM0",
+        ],
+        0,
+    ),
 ]
 
 

@@ -27,6 +27,10 @@ All notable changes are documented here. The format follows
 - `mcuflow bridge`: share a serial port over the network (RFC2217, via esptool's
   server) so a board on one host can be flashed/monitored from another with
   `--port rfc2217://<host>:<tcp>`.
+- Workbench signal generator: `/api/siggen/start|stop` drive a PWM (LEDC) on a
+  satellite pin (firmware `siggen.start/stop`).
+- Workbench UDP logging: `/api/udplog` collects device log lines a board ships
+  over UDP (for when its USB serial is busy); `--udp-port` sets the listen port.
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

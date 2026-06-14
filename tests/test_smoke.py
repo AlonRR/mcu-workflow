@@ -7,6 +7,7 @@ Run with `pytest`.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -76,3 +77,22 @@ def test_cli(args, want):
         stderr=subprocess.DEVNULL,
     ).returncode
     assert rc == want
+
+
+def _run_json(args):
+    out = subprocess.run(MCUFLOW + args, capture_output=True, text=True).stdout
+    return json.loads(out)
+
+
+def test_sim_run_has_no_ports_stage():
+    # --sim has no real hardware, so the auto-detect "ports" stage must be absent.
+    data = _run_json(["--json", "--sim", "run", C3, "-o", TMP])
+    assert data["ok"] and "ports" not in [s["stage"] for s in data["stages"]]
+
+
+def test_real_run_records_explicit_port():
+    # Non-sim build fails here (no toolchain), but the ports stage runs first and
+    # must record the explicit --port choice - the visible-automation contract.
+    data = _run_json(["--json", "run", C3, "--port", "COM9", "-o", TMP])
+    ports = [s for s in data["stages"] if s["stage"] == "ports"]
+    assert ports and "COM9" in ports[0]["detail"]

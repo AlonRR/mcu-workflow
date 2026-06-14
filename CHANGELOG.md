@@ -17,6 +17,10 @@ All notable changes are documented here. The format follows
 - Cage build + host `esptool` flash, so no native ESP-IDF install is needed.
 - On-silicon HIL: `run`/`hil` read the real DUT serial to confirm boot + WiFi join.
 - `ruff` lint gate and CI (smoke + lint).
+- `mcuflow ports`: a viewer (stdlib tkinter, `--watch`/`--list`) that shows which
+  board is on which COM port — serial numbers, suggested DUT/satellite roles with
+  a reason, and the commands the mapping implies. Read-only; it never touches a
+  board.
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import base64
 import importlib.util
+import json
 import socket
 import threading
 import time
+import urllib.error
+import urllib.request
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -43,3 +48,42 @@ def test_udp_log_listener_collects_lines():
 def test_detect_capabilities_marks_udp_log_available():
     caps = wb.detect_capabilities([], satellite=None)
     assert caps["udp_log"] is True
+
+
+def test_safe_name_rejects_traversal():
+    assert wb._safe_name("app.bin") == "app.bin"
+    assert wb._safe_name("../../etc/passwd") == "passwd"  # basename only
+    assert wb._safe_name("") is None
+    assert wb._safe_name("..") is None
+
+
+def test_ota_upload_then_download_roundtrip(tmp_path):
+    wb.FIRMWARE_DIR = str(tmp_path)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), wb.Handler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        blob = bytes(range(256)) * 4
+
+        def post(path, obj):
+            r = urllib.request.Request(
+                f"http://127.0.0.1:{port}{path}",
+                data=json.dumps(obj).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            return json.loads(urllib.request.urlopen(r, timeout=5).read())
+
+        up = post(
+            "/api/firmware/upload", {"name": "fw.bin", "data_b64": base64.b64encode(blob).decode()}
+        )
+        assert up["ok"] and up["bytes"] == len(blob)
+        got = urllib.request.urlopen(f"http://127.0.0.1:{port}/firmware/fw.bin", timeout=5).read()
+        assert got == blob
+        # an unknown image 404s
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/firmware/nope.bin", timeout=5)
+            raise AssertionError("expected 404")
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+    finally:
+        srv.shutdown()

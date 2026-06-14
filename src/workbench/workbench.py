@@ -16,6 +16,8 @@ Read endpoints (GET, JSON):
   /api/devices            discovered serial slots (chip, port, url)
   /api/satellite/caps     capabilities reported by the attached satellite
   /api/udplog?source&n    device logs received over UDP (newest n; filter by ip)
+  /api/firmware           list OTA images available to serve
+  /firmware/<name>        download an OTA image (point the DUT's OTA URL here)
 
 Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/satellite/ping     -> {"ok": true, "fw": ...}
@@ -26,6 +28,7 @@ Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/gpio/get           {pin}                       -> {"ok": true, "value": ...}
   /api/siggen/start       {pin, freq?, duty?}         -> {"ok": true, "freq", "duty"}
   /api/siggen/stop        -> {"ok": true}
+  /api/firmware/upload    {name, data_b64}            -> {"ok": true, "url", ...}
 
 Run:  python workbench.py --port 6283                       # binds 0.0.0.0
       python workbench.py --satellite sim                   # emulated radios
@@ -35,6 +38,7 @@ Run:  python workbench.py --port 6283                       # binds 0.0.0.0
 from __future__ import annotations
 
 import argparse
+import base64
 import glob
 import json
 import os
@@ -57,6 +61,17 @@ START = time.time()
 # lines to the workbench when its USB serial is busy (HID gadget, mid-OTA); the
 # firmware just sends UDP datagrams to <workbench-ip>:<udp_port>.
 UDP_LOG = deque(maxlen=2000)
+
+# Directory of firmware images served for OTA (GET /firmware/<name>); set in
+# main() from --firmware-dir. A DUT points its OTA URL at
+# http://<workbench>:<port>/firmware/<name>.
+FIRMWARE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_firmware")
+
+
+def _safe_name(name):
+    """A bare filename (no path traversal) for the firmware store, or None."""
+    base = os.path.basename(name or "")
+    return base if base and base not in (".", "..") else None
 
 
 def _udp_log_listener(host, port):
@@ -156,6 +171,13 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_bytes(self, data, content_type="application/octet-stream", code=200):
+        self.send_response(code)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def log_message(self, *a):
         pass
 
@@ -221,6 +243,20 @@ class Handler(BaseHTTPRequestHandler):
                 n = 100
             rows = [r for r in UDP_LOG if src is None or r["src"] == src]
             self._send({"ok": True, "lines": rows[-n:]})
+        elif self.path == "/api/firmware":
+            try:
+                names = sorted(os.listdir(FIRMWARE_DIR))
+            except OSError:
+                names = []
+            self._send({"ok": True, "firmware": names})
+        elif self.path.startswith("/firmware/"):
+            name = _safe_name(self.path[len("/firmware/") :])
+            path = os.path.join(FIRMWARE_DIR, name) if name else None
+            if not path or not os.path.isfile(path):
+                self._send({"ok": False, "error": "no such firmware"}, code=404)
+                return
+            with open(path, "rb") as f:
+                self._send_bytes(f.read())
         else:
             self._send({"ok": False, "error": "not found: " + self.path}, code=404)
 
@@ -231,6 +267,30 @@ class Handler(BaseHTTPRequestHandler):
         body = self._read_body()
         if body is None:
             self._send({"ok": False, "error": "bad json body"}, code=400)
+            return
+        # Firmware upload needs no satellite (OTA is host-served); handle first.
+        if self.path == "/api/firmware/upload":
+            name = _safe_name(body.get("name"))
+            if not name or "data_b64" not in body:
+                self._send({"ok": False, "error": "name and data_b64 required"}, code=400)
+                return
+            try:
+                blob = base64.b64decode(body["data_b64"])
+            except (ValueError, TypeError):
+                self._send({"ok": False, "error": "data_b64 not valid base64"}, code=400)
+                return
+            os.makedirs(FIRMWARE_DIR, exist_ok=True)
+            with open(os.path.join(FIRMWARE_DIR, name), "wb") as f:
+                f.write(blob)
+            host = self.headers.get("Host", "localhost")
+            self._send(
+                {
+                    "ok": True,
+                    "name": name,
+                    "bytes": len(blob),
+                    "url": "http://" + host + "/firmware/" + name,
+                }
+            )
             return
         if not self._need_sat():
             return
@@ -279,6 +339,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(argv=None):
+    global FIRMWARE_DIR
     ap = argparse.ArgumentParser(prog="mcuflow workbench", description="mcuflow workbench service")
     # 6283: an uncommon default (8080 collides with too many other dev tools).
     ap.add_argument("--port", type=int, default=6283)
@@ -304,7 +365,15 @@ def main(argv=None):
         default=6284,
         help="UDP port to collect device logs on (read at /api/udplog)",
     )
+    ap.add_argument(
+        "--firmware-dir",
+        default=FIRMWARE_DIR,
+        help="directory of OTA firmware images served at /firmware/<name>",
+    )
     args = ap.parse_args(argv)
+
+    FIRMWARE_DIR = args.firmware_dir
+    os.makedirs(FIRMWARE_DIR, exist_ok=True)
 
     threading.Thread(target=_udp_log_listener, args=(args.host, args.udp_port), daemon=True).start()
 

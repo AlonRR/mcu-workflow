@@ -31,6 +31,9 @@ All notable changes are documented here. The format follows
   satellite pin (firmware `siggen.start/stop`).
 - Workbench UDP logging: `/api/udplog` collects device log lines a board ships
   over UDP (for when its USB serial is busy); `--udp-port` sets the listen port.
+- Workbench OTA serving: `POST /api/firmware/upload` (base64), `GET /api/firmware`,
+  and `GET /firmware/<name>` so a DUT can pull an update over HTTP; `--firmware-dir`
+  sets the store.
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

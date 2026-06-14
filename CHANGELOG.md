@@ -32,6 +32,18 @@ All notable changes are documented here. The format follows
   `agent:` or `--agent`); no implicit Claude default.
 - Workbench default port moved off the collision-prone `8080` to `6283`.
 
+### Fixed
+- Launcher arguments: a flat parser now accepts global flags on either side of
+  the subcommand, so the documented `--project . up --busid <id> --dry-run`
+  (globals on both sides) parses.
+- `mcuflow --sim up …` / `--json up …` now forward to the launcher; a leading
+  global no longer drops the passthrough option (argparse REMAINDER quirk).
+- `up --dry-run` prints the full, auditable plan without requiring an in-cage
+  agent (real entry still refuses to start without one).
+- `up doctor` no longer mistakes a down Docker daemon's error text for an image
+  id (false "present"); it reports the daemon as unreachable and the readiness
+  line says to start Docker rather than "yes".
+
 ## [0.2.0]
 
 - First end-to-end run on real two-ESP32-C3 hardware: validate → scaffold →

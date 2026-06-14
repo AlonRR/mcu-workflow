@@ -5,7 +5,9 @@
 # components, so depend on the specific ones this firmware includes:
 #   driver/gpio.h            -> esp_driver_gpio
 #   driver/usb_serial_jtag.h -> esp_driver_usb_serial_jtag
+#   driver/ledc.h            -> esp_driver_ledc   (PWM signal generator)
 idf_component_register(SRCS "satellite_main.c"
                        INCLUDE_DIRS "."
                        REQUIRES esp_wifi nvs_flash esp_netif esp_event
-                                esp_driver_gpio esp_driver_usb_serial_jtag)
+                                esp_driver_gpio esp_driver_usb_serial_jtag
+                                esp_driver_ledc)

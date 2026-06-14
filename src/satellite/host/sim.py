@@ -34,6 +34,7 @@ class SimState:
     def __init__(self):
         self.ap = None  # dict(ssid, password, channel, ip) when up
         self.gpio = {}  # pin -> 0/1
+        self.siggen = None  # dict(pin, freq, duty) when a PWM is running
         # A couple of fake neighbouring networks so wifi.scan returns something.
         self.visible_networks = [
             {"ssid": "office-2g", "rssi": -57},
@@ -44,7 +45,7 @@ class SimState:
 class SimSatelliteTransport:
     """A fake serial transport: parse a request line, queue a response line."""
 
-    def __init__(self, state=None, capabilities=("wifi", "gpio")):
+    def __init__(self, state=None, capabilities=("wifi", "gpio", "siggen")):
         self.state = state or SimState()
         self.capabilities = list(capabilities)
         self._out = deque()  # queued response lines (str, no newline)
@@ -102,12 +103,23 @@ class SimSatelliteTransport:
             if pin is None or pin < 0:
                 return {"ok": False, "error": "missing pin"}
             return {"ok": True, "value": s.gpio.get(pin, 0)}
+        if cmd == "siggen.start":
+            pin = req.get("pin", -1)
+            if pin is None or pin < 0:
+                return {"ok": False, "error": "missing pin"}
+            freq = req.get("freq", 1000)
+            duty = max(0, min(100, req.get("duty", 50)))
+            s.siggen = {"pin": pin, "freq": freq, "duty": duty}
+            return {"ok": True, "freq": freq, "duty": duty}
+        if cmd == "siggen.stop":
+            s.siggen = None
+            return {"ok": True}
         if cmd in ("ble.scan", "ble.write"):
             return {"ok": False, "error": "ble not built in this image"}
         return {"ok": False, "error": "unknown cmd: " + str(cmd)}
 
 
-def make_sim_satellite(state=None, capabilities=("wifi", "gpio")):
+def make_sim_satellite(state=None, capabilities=("wifi", "gpio", "siggen")):
     """Convenience: a Satellite driver wired to a fresh simulator."""
     from satellite.host.satellite_driver import Satellite
 

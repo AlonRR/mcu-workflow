@@ -23,6 +23,8 @@ the same line protocol can later run over TCP for a remotely-placed satellite.
 | `ble.write` | `addr`, `char`, `data` (hex) | `{"ok":true}` |
 | `gpio.set` | `pin`, `value` (0/1) | `{"ok":true}` |
 | `gpio.get` | `pin` | `{"ok":true,"value":0}` |
+| `siggen.start` | `pin`, `freq?` (Hz), `duty?` (0-100) | `{"ok":true,"freq","duty"}` |
+| `siggen.stop` | — | `{"ok":true}` |
 
 Unknown commands return `{"ok":false,"error":"unknown cmd: <x>"}`. Malformed
 JSON returns `{"ok":false,"error":"bad json"}`.

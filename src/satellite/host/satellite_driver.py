@@ -137,6 +137,12 @@ class Satellite:
     def gpio_get(self, pin):
         return self._rpc("gpio.get", pin=pin)
 
+    def siggen_start(self, pin, freq=1000, duty=50):
+        return self._rpc("siggen.start", pin=pin, freq=freq, duty=duty)
+
+    def siggen_stop(self):
+        return self._rpc("siggen.stop")
+
     @classmethod
     def open_serial(cls, port, baud=115200, timeout=1.0):
         import serial  # pyserial; only needed for a real board

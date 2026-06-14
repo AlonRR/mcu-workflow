@@ -66,9 +66,10 @@ hardware prerequisites. (Already have Python 3.10+? `pip install -e .` works too
 
 Put `bin/` on your PATH and it's just `mcuflow ...` (`bin/mcuflow` on POSIX,
 `bin\mcuflow.bat` on Windows). Verbs: `validate scaffold build flash monitor test
-hil run up workbench doctor env`. Add `--sim` for no hardware; drop it (and add
-`--port`/`--workbench`) for real boards. With no native ESP-IDF, `build` runs in
-the Docker cage and `flash` uses host `esptool` over the board's COM port.
+hil run up workbench ports doctor env`. Add `--sim` for no hardware; drop it (and
+add `--port`/`--workbench`) for real boards. With no native ESP-IDF, `build` runs
+in the Docker cage and `flash` uses host `esptool` over the board's COM port.
+`mcuflow ports` opens a viewer that shows which board is on which COM port.
 
 **Real hardware:** the two-ESP32-C3 bring-up is in
 **[docs/runbook-c3.md](docs/runbook-c3.md)**.
@@ -85,6 +86,7 @@ src/            the runtime (one module per deliverable)
   satellite/        ESP32 test instrument: firmware + protocol + host driver
   sim/              behavioural DUT/satellite simulators + the HIL run
   adapters/         pluggable per-platform toolchain commands
+  portviewer/       `mcuflow ports`: viewer of which board is on which COM port
 examples/       sample board.yml files
 hardware/       Stage-0 helpers: BOM/wiring (design/) and the FDM case (enclosure/)
 deploy/         the cage's egress-allowlist proxy + compose

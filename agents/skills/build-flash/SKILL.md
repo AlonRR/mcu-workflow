@@ -34,6 +34,14 @@ mcuflow monitor --port <PORT>     # serial monitor (interactive)
 4. `mcuflow flash --port <PORT>`, then `mcuflow monitor --port <PORT>` to confirm
    the boot string from `board.yml` `test.boot_string` appears.
 
+## Network flash (RFC2217)
+
+To flash a board attached to another machine, run `mcuflow bridge --port <COM>
+--tcp 4000` there, then flash from anywhere with `--port rfc2217://<host>:4000`.
+The serial path works over the network; on the C3's native USB, put the board in
+download mode first (hold BOOT, or pulse it via the satellite GPIO) since
+auto-reset doesn't carry over RFC2217.
+
 ## Notes
 
 - With no native ESP-IDF, `build` runs in the cage image and `flash` uses host

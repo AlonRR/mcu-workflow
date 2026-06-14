@@ -694,6 +694,12 @@ def verb_ports(args):
     return pv.main(fwd)
 
 
+def verb_bridge(args):
+    """Delegate to the RFC2217 serial bridge (share a port over the network)."""
+    sb = _load_sibling("mcuflow_serialbridge", "serialbridge/serialbridge.py")
+    return sb.main(["--port", args.port, "--tcp", str(args.tcp)])
+
+
 def _list_serial_ports():
     """Device names of connected serial ports.
 
@@ -1299,6 +1305,11 @@ def build_parser():
     pv.add_argument("--list", action="store_true", help="print the view once as text (no window)")
     pv.add_argument("--watch", action="store_true", help="open hidden; pop up when a board appears")
     pv.set_defaults(func=verb_ports)
+
+    br = sub.add_parser("bridge", help="serve a serial port over the network (RFC2217)")
+    br.add_argument("--port", required=True, help="local serial port to share (e.g. COM6)")
+    br.add_argument("--tcp", type=int, default=4000, help="TCP port to listen on (default 4000)")
+    br.set_defaults(func=verb_bridge)
 
     d = sub.add_parser("doctor", help="preflight: deps, toolchain, ports, satellite")
     d.add_argument("--satellite", default=None, help="ping a satellite: 'sim' or a serial port")

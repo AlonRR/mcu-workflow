@@ -233,7 +233,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="mcuflow workbench service")
+    ap = argparse.ArgumentParser(prog="mcuflow workbench", description="mcuflow workbench service")
     # 6283: an uncommon default (8080 collides with too many other dev tools).
     ap.add_argument("--port", type=int, default=6283)
     ap.add_argument(

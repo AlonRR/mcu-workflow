@@ -72,6 +72,35 @@ def test_dry_run_previews_without_agent():
     assert up.main(argv) == up.EXIT_OK
 
 
+# --- doctor readiness reflects a stopped docker daemon -----------------------
+
+
+class _FakeRunner:
+    dry_run = False
+
+    def __init__(self, rc, out):
+        self._rc, self._out = rc, out
+
+    def run(self, cmd, **kw):
+        return self._rc, self._out
+
+
+def test_doctor_warns_when_daemon_down(monkeypatch, capsys):
+    monkeypatch.setattr(up, "have", lambda tool: True)  # all tools installed
+    args = up.build_parser().parse_args(["doctor"])
+    rc = up.cmd_doctor(args, {"image": "img"}, "linux", _FakeRunner(1, "cannot connect"))
+    out = capsys.readouterr().out
+    assert "start Docker" in out and rc == up.EXIT_OK  # installed, but not "yes"
+
+
+def test_doctor_ready_when_daemon_up(monkeypatch, capsys):
+    monkeypatch.setattr(up, "have", lambda tool: True)
+    args = up.build_parser().parse_args(["doctor"])
+    rc = up.cmd_doctor(args, {"image": "img"}, "linux", _FakeRunner(0, "abc123\n"))
+    out = capsys.readouterr().out
+    assert "ready: yes" in out and rc == up.EXIT_OK
+
+
 def test_real_entry_without_agent_is_usage_error(tmp_path):
     # No cage.yaml in tmp_path -> no agent -> a non-dry-run entry must refuse.
     # --os windows skips the "docker not found" guard (which precedes the agent

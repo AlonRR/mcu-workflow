@@ -191,14 +191,27 @@ def cmd_doctor(args, cfg, host_os, runner):
         print(
             "  [" + ("ok " if present else "-- ") + "] " + tool + ("" if present else "  (missing)")
         )
-    # Image presence (only meaningful if docker is here and not dry-run).
+    # Image presence (only meaningful if docker is here and not dry-run). A
+    # non-zero rc here also tells us the daemon is unreachable (it failed to
+    # answer), which feeds the readiness line below.
+    daemon_up = None  # None = not probed (dry-run or no docker CLI)
     if have("docker") and not args.dry_run:
         rc, out = runner.run(["docker", "images", "-q", cfg["image"]], quiet=True)
+        daemon_up = rc == 0
         print("  image " + cfg["image"] + ": " + image_status(rc, out))
     else:
         print("  image " + cfg["image"] + ": (not checked)")
-    print("ready: " + ("yes" if ok else "no - install the missing tool(s) above"))
-    return EXIT_OK if ok else EXIT_NOTOOL
+    # Don't claim "ready" when the daemon is down - the very next `up` would fail
+    # at `docker run`. The CLI is installed, so this isn't a missing-tool error
+    # (exit stays OK); the user just needs to start Docker.
+    if not ok:
+        print("ready: no - install the missing tool(s) above")
+        return EXIT_NOTOOL
+    if daemon_up is False:
+        print("ready: tools installed - start Docker (daemon not running) before `up`")
+        return EXIT_OK
+    print("ready: yes")
+    return EXIT_OK
 
 
 def list_serial_host():

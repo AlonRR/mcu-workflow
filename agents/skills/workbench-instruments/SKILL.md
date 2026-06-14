@@ -19,11 +19,11 @@ present.
 
 Read-only: `GET /api/health`, `/api/info`, `/api/capabilities`, `/api/devices`
 (discovered serial slots), `/api/satellite/caps`, `/api/udplog` (device logs
-received over UDP).
+received over UDP), `/api/firmware` + `/firmware/<name>` (OTA images).
 
 Actions (POST): `/api/satellite/ping`, `/api/wifi/ap_start`, `/api/wifi/ap_stop`,
 `/api/wifi/scan`, `/api/gpio/set`, `/api/gpio/get`, `/api/siggen/start`,
-`/api/siggen/stop`.
+`/api/siggen/stop`, `/api/firmware/upload`.
 
 ## Common patterns
 
@@ -62,6 +62,15 @@ them back:
 GET /api/udplog?source=<dut-ip>&n=100   -> {"ok":true,"lines":[{t,src,line}]}
 ```
 
+**OTA.** Upload an image, then point the DUT's OTA URL at it (the DUT firmware
+pulls it via `esp_https_ota`):
+```
+POST /api/firmware/upload {"name":"app-v2.bin","data_b64":"<base64>"}
+# -> {"ok":true,"url":"http://<workbench>:6283/firmware/app-v2.bin"}
+GET  /api/firmware                      # list available images
+GET  /firmware/app-v2.bin              # the DUT downloads this
+```
+
 **Satellite health.** `POST /api/satellite/ping` -> `{"ok":true,"fw":...}`;
 `GET /api/satellite/caps` for what the attached satellite reports.
 
@@ -75,7 +84,7 @@ GET /api/udplog?source=<dut-ip>&n=100   -> {"ok":true,"lines":[{t,src,line}]}
 
 ## Not yet available here
 
-BLE, MQTT, OTA, and an HTTP-through-AP proxy are **not** implemented in this
-workbench (see `agents/skills/README.md` "Planned"). Don't call endpoints for
-them - check `/api/capabilities` and skip. (Network flashing over RFC2217 is
-available separately via `mcuflow bridge`.)
+BLE, MQTT, and an HTTP-through-AP proxy are **not** implemented in this workbench
+(see `agents/skills/README.md` "Planned"). Don't call endpoints for them - check
+`/api/capabilities` and skip. (Network flashing over RFC2217 is available
+separately via `mcuflow bridge`.)

@@ -630,6 +630,13 @@ def verb_workbench(args):
     return wb.main(args.rest)
 
 
+def verb_ports(args):
+    """Delegate to the COM-port viewer (GUI/text)."""
+    pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+    fwd = (["--list"] if args.list else []) + (["--watch"] if args.watch else [])
+    return pv.main(fwd)
+
+
 def _list_serial_ports():
     if os.name == "nt":
         try:
@@ -1227,6 +1234,11 @@ def build_parser():
         "rest", nargs=argparse.REMAINDER, help="args passed through to the workbench service"
     )
     wbp.set_defaults(func=verb_workbench)
+
+    pv = sub.add_parser("ports", help="view connected boards / COM-port mapping (GUI)")
+    pv.add_argument("--list", action="store_true", help="print the view once as text (no window)")
+    pv.add_argument("--watch", action="store_true", help="open hidden; pop up when a board appears")
+    pv.set_defaults(func=verb_ports)
 
     d = sub.add_parser("doctor", help="preflight: deps, toolchain, ports, satellite")
     d.add_argument("--satellite", default=None, help="ping a satellite: 'sim' or a serial port")

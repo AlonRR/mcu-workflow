@@ -40,6 +40,9 @@ All notable changes are documented here. The format follows
   endpoint + host driver + simulator. Software path and sim are verified; the
   on-silicon scan currently resets the C3 (experimental, pending on-device
   debugging - the panic isn't capturable over the USB-JTAG console headlessly).
+- `mcuflow debug`: start an OpenOCD GDB server (`:3333`) over the chip's built-in
+  USB-JTAG for step-debugging (needs OpenOCD; Windows needs a Zadig WinUSB
+  driver).
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

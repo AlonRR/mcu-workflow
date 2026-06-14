@@ -700,6 +700,13 @@ def verb_bridge(args):
     return sb.main(["--port", args.port, "--tcp", str(args.tcp)])
 
 
+def verb_debug(args):
+    """Delegate to the OpenOCD GDB-server launcher (JTAG/debug)."""
+    dbg = _load_sibling("mcuflow_debugger", "debugger/debugger.py")
+    fwd = ["--chip", args.chip] + (["--board", args.board] if args.board else [])
+    return dbg.main(fwd)
+
+
 def _list_serial_ports():
     """Device names of connected serial ports.
 
@@ -1310,6 +1317,11 @@ def build_parser():
     br.add_argument("--port", required=True, help="local serial port to share (e.g. COM6)")
     br.add_argument("--tcp", type=int, default=4000, help="TCP port to listen on (default 4000)")
     br.set_defaults(func=verb_bridge)
+
+    dbg = sub.add_parser("debug", help="start an OpenOCD GDB server (JTAG, built-in USB-JTAG)")
+    dbg.add_argument("--chip", default="esp32c3", help="target chip (default esp32c3)")
+    dbg.add_argument("--board", default=None, help="OpenOCD board config (overrides --chip)")
+    dbg.set_defaults(func=verb_debug)
 
     d = sub.add_parser("doctor", help="preflight: deps, toolchain, ports, satellite")
     d.add_argument("--satellite", default=None, help="ping a satellite: 'sim' or a serial port")

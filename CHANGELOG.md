@@ -21,6 +21,9 @@ All notable changes are documented here. The format follows
   board is on which COM port — serial numbers, suggested DUT/satellite roles with
   a reason, and the commands the mapping implies. Read-only; it never touches a
   board.
+- `mcuflow run` (real hardware, no `--port`) auto-detects the DUT port from the
+  connected boards and narrates the choice as a visible "ports" stage (with the
+  satellite noted), so the automatic assignment is never silent.
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

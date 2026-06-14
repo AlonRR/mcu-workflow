@@ -2,10 +2,10 @@
 name: mcu-build-flash
 description: >
   Build, flash, and monitor ESP32 firmware. Use when the user says "build",
-  "compile", "flash", "upload", "monitor the serial", or "put this on the
-  board". Drives the mcuflow CLI (which wraps idf.py / esptool), auto-detecting
-  whether the board is on local USB or a networked workbench. Handles both
-  ESP-IDF and PlatformIO projects.
+  "compile", "flash", "upload", "monitor the serial", or "put this on the board".
+  Drives the mcuflow CLI, which wraps idf.py / esptool (or builds in the Docker
+  cage when there's no native ESP-IDF). ESP-IDF projects today; other toolchains
+  plug in behind the platform adapter.
 ---
 
 # Build / flash / monitor
@@ -13,26 +13,33 @@ description: >
 Use the `mcuflow` verbs; they are the canonical path (same behavior as CI).
 
 ```bash
-mcuflow build                     # idf.py build, structured result
-mcuflow flash --port <PORT>       # or auto-detect; via workbench if configured
+mcuflow build                     # idf.py build (or the cage), structured result
+mcuflow flash --port <PORT>       # host esptool over the COM port (or idf.py)
 mcuflow monitor --port <PORT>     # serial monitor (interactive)
 ```
 
 ## Steps
 
-1. Confirm the toolchain: `mcuflow env doctor`. If `idf.py` is missing, the user
-   should run inside the cage (`mcuflow up`) - suggest it.
+1. Confirm the toolchain: `mcuflow doctor`. If `idf.py` is missing, `build` still
+   works through the Docker cage; if even Docker is absent, run `mcuflow doctor
+   --fix` (or work inside `mcuflow up`).
 2. `mcuflow build`. On error, read the message; if it's an API/Kconfig issue,
-   query the **Docs MCP** before editing. Rebuild until clean.
-3. Pick the port: from `mcuflow env doctor` / `project://devices`, or the
-   workbench `/api/devices`. On a networked workbench, flash over RFC2217.
-4. `mcuflow flash`, then `mcuflow monitor` to confirm the boot string from
-   `board.yml` `test.boot_string` appears.
+   consult the ESP-IDF docs (or a docs MCP if one is configured) before editing.
+   Rebuild until clean. Report size/warnings from the result, not the whole log.
+3. Pick the port. `mcuflow run` auto-detects the DUT, but for a bare
+   `flash`/`monitor` choose it explicitly: `mcuflow ports` (or `mcuflow ports
+   --list`) shows each board, its USB serial, and which is DUT vs satellite;
+   `mcuflow doctor` lists the ports; a networked workbench lists them at
+   `GET /api/devices`.
+4. `mcuflow flash --port <PORT>`, then `mcuflow monitor --port <PORT>` to confirm
+   the boot string from `board.yml` `test.boot_string` appears.
 
 ## Notes
 
-- ESP-IDF vs PlatformIO is auto-detected by the project layout; the verbs are
-  the same either way.
-- After a flash, a board may re-enumerate; if serial doesn't come back, reset it
-  (workbench `/api/serial/reset`) rather than power-cycling by hand.
-- Report size/warnings from the build result, not the whole log.
+- With no native ESP-IDF, `build` runs in the cage image and `flash` uses host
+  `esptool` over the COM port - no toolchain install needed.
+- After a flash the C3's native USB can re-enumerate; if the port doesn't come
+  back, re-list with `mcuflow ports`, or drive the satellite GPIO to reset the
+  DUT (workbench `/api/gpio/set`) rather than power-cycling by hand.
+- ESP-IDF is the only adapter implemented today; the verbs don't change when
+  others land.

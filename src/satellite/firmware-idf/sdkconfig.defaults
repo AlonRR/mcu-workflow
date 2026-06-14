@@ -3,3 +3,14 @@ CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 # Keep the boot/log chatter off the protocol channel.
 CONFIG_LOG_DEFAULT_LEVEL_NONE=y
+# BLE (NimBLE) for the ble.scan observer. BT + WiFi together no longer fit the
+# default 1 MB app partition, so use the larger single-app layout.
+CONFIG_BT_ENABLED=y
+CONFIG_BT_NIMBLE_ENABLED=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+# BT and WiFi share the one C3 radio; software coexistence is required or BLE
+# activity faults/reboots when WiFi is also in the image.
+CONFIG_ESP_COEX_SW_COEXIST_ENABLE=y
+# The command loop runs in the main task and calls NimBLE + builds cJSON during
+# ble.scan; the default 3.5 KB main-task stack overflows, so enlarge it.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192

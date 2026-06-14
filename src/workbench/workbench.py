@@ -23,6 +23,8 @@ Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/wifi/scan          -> {"ok": true, "networks": [...]}
   /api/gpio/set           {pin, value}                -> {"ok": true}
   /api/gpio/get           {pin}                       -> {"ok": true, "value": ...}
+  /api/siggen/start       {pin, freq?, duty?}         -> {"ok": true, "freq", "duty"}
+  /api/siggen/stop        -> {"ok": true}
 
 Run:  python workbench.py --port 6283                       # binds 0.0.0.0
       python workbench.py --satellite sim                   # emulated radios
@@ -228,6 +230,19 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"ok": False, "error": "pin required"}, code=400)
                 return
             self._send(self._sat_call(lambda s: s.gpio_get(body["pin"])))
+        elif p == "/api/siggen/start":
+            if "pin" not in body:
+                self._send({"ok": False, "error": "pin required"}, code=400)
+                return
+            self._send(
+                self._sat_call(
+                    lambda s: s.siggen_start(
+                        body["pin"], body.get("freq", 1000), body.get("duty", 50)
+                    )
+                )
+            )
+        elif p == "/api/siggen/stop":
+            self._send(self._sat_call(lambda s: s.siggen_stop()))
         else:
             self._send({"ok": False, "error": "not found: " + p}, code=404)
 

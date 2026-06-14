@@ -25,6 +25,7 @@
 #include "nvs_flash.h"
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
+#include "driver/ledc.h"
 #include "cJSON.h"
 
 #define FW "sat-idf-0.1"
@@ -176,6 +177,51 @@ static void handle_gpio_get(cJSON *req) {
     cJSON_Delete(r);
 }
 
+// --- signal generator (PWM) -------------------------------------------------
+// One LEDC timer+channel drives a square wave on a pin: siggen.start {pin, freq,
+// duty%}, siggen.stop. 10-bit resolution (duty 0..1023 maps from 0..100%).
+static void handle_siggen_start(cJSON *req) {
+    const cJSON *jpin = cJSON_GetObjectItem(req, "pin");
+    if (!cJSON_IsNumber(jpin)) { reply_err("missing pin"); return; }
+    const cJSON *jfreq = cJSON_GetObjectItem(req, "freq");
+    const cJSON *jduty = cJSON_GetObjectItem(req, "duty");
+    int pin = jpin->valueint;
+    int freq = cJSON_IsNumber(jfreq) ? jfreq->valueint : 1000;
+    int duty_pct = cJSON_IsNumber(jduty) ? jduty->valueint : 50;
+    if (freq < 1) freq = 1;
+    if (duty_pct < 0) duty_pct = 0;
+    if (duty_pct > 100) duty_pct = 100;
+
+    ledc_timer_config_t tcfg = {
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .duty_resolution = LEDC_TIMER_10_BIT,
+        .timer_num = LEDC_TIMER_0,
+        .freq_hz = freq,
+        .clk_cfg = LEDC_AUTO_CLK,
+    };
+    if (ledc_timer_config(&tcfg) != ESP_OK) { reply_err("siggen timer config failed"); return; }
+    ledc_channel_config_t ccfg = {
+        .gpio_num = pin,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
+        .channel = LEDC_CHANNEL_0,
+        .timer_sel = LEDC_TIMER_0,
+        .duty = (uint32_t)((1023 * duty_pct) / 100),
+        .hpoint = 0,
+    };
+    if (ledc_channel_config(&ccfg) != ESP_OK) { reply_err("siggen channel config failed"); return; }
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    cJSON_AddNumberToObject(r, "freq", freq);
+    cJSON_AddNumberToObject(r, "duty", duty_pct);
+    send_line(r);
+    cJSON_Delete(r);
+}
+
+static void handle_siggen_stop(void) {
+    ledc_stop(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    reply_ok();
+}
+
 // --- dispatch ---------------------------------------------------------------
 static void handle_line(char *line) {
     cJSON *req = cJSON_Parse(line);
@@ -194,6 +240,7 @@ static void handle_line(char *line) {
         cJSON *a = cJSON_AddArrayToObject(r, "capabilities");
         cJSON_AddItemToArray(a, cJSON_CreateString("wifi"));
         cJSON_AddItemToArray(a, cJSON_CreateString("gpio"));
+        cJSON_AddItemToArray(a, cJSON_CreateString("siggen"));
         send_line(r); cJSON_Delete(r);
     } else if (!strcmp(cmd, "wifi.ap_start")) {
         handle_ap_start(req);
@@ -205,6 +252,10 @@ static void handle_line(char *line) {
         handle_gpio_set(req);
     } else if (!strcmp(cmd, "gpio.get")) {
         handle_gpio_get(req);
+    } else if (!strcmp(cmd, "siggen.start")) {
+        handle_siggen_start(req);
+    } else if (!strcmp(cmd, "siggen.stop")) {
+        handle_siggen_stop();
     } else if (!strcmp(cmd, "ble.scan") || !strcmp(cmd, "ble.write")) {
         reply_err("ble not built in this image");
     } else {

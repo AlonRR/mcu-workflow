@@ -97,10 +97,21 @@ def suggest_roles(ports):
     return {dut: "DUT", sat: "satellite"}, reason
 
 
-def render_commands(mapping, board_yml=DEFAULT_BOARD):
-    """The mcuflow commands the current port mapping implies (display only)."""
+def roles_to_ports(mapping):
+    """Decode a {device: role} mapping into (dut_device, satellite_device).
+
+    The single place the role strings are turned back into ports, so callers
+    (render_commands here, the run auto-detect in mcuflow) don't each re-encode
+    the "DUT"/"satellite" literals.
+    """
     dut = next((d for d, r in mapping.items() if r == "DUT"), None)
     sat = next((d for d, r in mapping.items() if r == "satellite"), None)
+    return dut, sat
+
+
+def render_commands(mapping, board_yml=DEFAULT_BOARD):
+    """The mcuflow commands the current port mapping implies (display only)."""
+    dut, sat = roles_to_ports(mapping)
     lines = []
     if sat:
         lines.append("mcuflow workbench --satellite " + sat)

@@ -465,20 +465,19 @@ def verb_hil(args, board=None):
 
 
 def _autodetect_dut_satellite():
-    """Best-effort detect of connected boards -> (dut, satellite, n_boards, reason).
+    """Detect connected boards -> (dut, satellite, n_boards, reason).
 
     Reuses the port viewer's logic so `run` and the viewer agree. dut/satellite
-    may be None; never raises (returns a reason on failure).
+    may be None for a genuine no-board case (list_ports_info() returns [] when
+    pyserial is absent). This does NOT swallow unexpected errors - a real failure
+    raises so verb_run fails the ports stage loudly instead of masking it as
+    "no board" and flashing the toolchain default.
     """
-    try:
-        pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
-        ports = pv.list_ports_info()
-        nboards = len(pv.boards(ports))
-        mapping, reason = pv.suggest_roles(ports)
-    except Exception as ex:
-        return None, None, 0, "port autodetect unavailable: " + str(ex)
-    dut = next((d for d, r in mapping.items() if r == "DUT"), None)
-    sat = next((d for d, r in mapping.items() if r == "satellite"), None)
+    pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+    ports = pv.list_ports_info()
+    nboards = len(pv.boards(ports))
+    mapping, reason = pv.suggest_roles(ports)
+    dut, sat = pv.roles_to_ports(mapping)
     return dut, sat, nboards, reason
 
 
@@ -538,7 +537,11 @@ def verb_run(args):
         if port:
             add("ports", EXIT_OK, "using --port " + port + " for the DUT")
         else:
-            dut, sat, nboards, reason = _autodetect_dut_satellite()
+            try:
+                dut, sat, nboards, reason = _autodetect_dut_satellite()
+            except Exception as ex:
+                add("ports", EXIT_FAIL, "port auto-detect failed: " + str(ex))
+                return finish(EXIT_FAIL)
             if dut:
                 port = dut
                 detail = "auto-detected " + str(nboards) + " board(s): " + dut + " = DUT"
@@ -692,16 +695,19 @@ def verb_ports(args):
 
 
 def _list_serial_ports():
-    if os.name == "nt":
-        try:
-            from serial.tools import list_ports  # pyserial
+    """Device names of connected serial ports.
 
-            return [pt.device for pt in list_ports.comports()]
-        except Exception:
-            return []
-    import glob
+    Delegates to the port viewer's enumerator so doctor and `mcuflow ports` give
+    the same answer (one source of truth), with a POSIX glob fallback for the
+    case where pyserial isn't importable yet (e.g. before `doctor --fix`).
+    """
+    pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+    ports = [p["device"] for p in pv.list_ports_info()]
+    if not ports and os.name != "nt":
+        import glob
 
-    return sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+        ports = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    return ports
 
 
 def _have_module(name):

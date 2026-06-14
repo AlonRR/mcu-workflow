@@ -24,6 +24,9 @@ All notable changes are documented here. The format follows
 - `mcuflow run` (real hardware, no `--port`) auto-detects the DUT port from the
   connected boards and narrates the choice as a visible "ports" stage (with the
   satellite noted), so the automatic assignment is never silent.
+- `mcuflow bridge`: share a serial port over the network (RFC2217, via esptool's
+  server) so a board on one host can be flashed/monitored from another with
+  `--port rfc2217://<host>:<tcp>`.
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

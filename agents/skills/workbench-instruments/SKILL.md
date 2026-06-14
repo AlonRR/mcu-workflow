@@ -60,6 +60,7 @@ POST /api/gpio/get {"pin":<dut_boot_gpio>}
 
 ## Not yet available here
 
-BLE, MQTT, OTA, UDP logging, an HTTP-through-AP proxy, and RFC2217 flashing are
-**not** implemented in this workbench (see `agents/skills/README.md` "Planned").
-Don't call endpoints for them - check `/api/capabilities` and skip.
+BLE, MQTT, OTA, UDP logging, and an HTTP-through-AP proxy are **not** implemented
+in this workbench (see `agents/skills/README.md` "Planned"). Don't call endpoints
+for them - check `/api/capabilities` and skip. (Network flashing over RFC2217 is
+available separately via `mcuflow bridge`.)

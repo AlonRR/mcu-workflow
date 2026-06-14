@@ -26,8 +26,10 @@ skills above deliberately don't reference them — an agent should check
 `src/workbench/`, give it the same "read capabilities → call the API → report
 what was observed" shape (optionally as its own finer skill): BLE
 (`workbench-ble`), MQTT (`workbench-mqtt`), UDP logging (`workbench-logging`),
-OTA, JTAG/debug (`workbench-debug`), a signal generator, and RFC2217 flashing
-over the network.
+OTA, JTAG/debug (`workbench-debug`), and a signal generator.
+
+(Network flashing over RFC2217 has shipped as `mcuflow bridge` — see the
+build-flash skill.)
 
 ## Install
 

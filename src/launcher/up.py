@@ -281,15 +281,24 @@ def cmd_up(args, cfg, host_os, runner):
         return EXIT_NOTOOL
 
     # The in-cage agent must be defined before entry - the launcher won't choose
-    # one. Set it in cage.yaml (`agent: ...`) or pass --agent "<command>".
+    # one. Set it in cage.yaml (`agent: ...`) or pass --agent "<command>". A
+    # dry-run never enters the cage, so it previews with a placeholder instead of
+    # failing (keeps `--dry-run` a complete, auditable plan).
     agent = (args.agent or cfg["agent"] or "").strip()
     if not agent:
-        print(
-            "x no in-cage agent defined. Set `agent:` in cage.yaml or pass "
-            '--agent "<command>" (e.g. --agent bash).',
-            file=sys.stderr,
-        )
-        return EXIT_USAGE
+        if args.dry_run:
+            print(
+                "note: no agent defined; using <agent-command> placeholder for the preview",
+                file=sys.stderr,
+            )
+            agent = "<agent-command>"
+        else:
+            print(
+                "x no in-cage agent defined. Set `agent:` in cage.yaml or pass "
+                '--agent "<command>" (e.g. --agent bash).',
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
     agent_argv = agent.split()
 
     # Resume an existing cage if present (workspace mount persists).

@@ -51,3 +51,6 @@ auto-reset doesn't carry over RFC2217.
   DUT (workbench `/api/gpio/set`) rather than power-cycling by hand.
 - ESP-IDF is the only adapter implemented today; the verbs don't change when
   others land.
+- To step-debug, `mcuflow debug --chip <chip>` starts an OpenOCD GDB server over
+  the C3's built-in USB-JTAG (needs OpenOCD on PATH; Windows needs a WinUSB
+  driver via Zadig). Connect gdb to `:3333`.

@@ -24,14 +24,15 @@ These are part of the workbench vision but are **not** in the current API, so th
 skills above deliberately don't reference them — an agent should check
 `GET /api/capabilities` and skip what's absent. As each lands in
 `src/workbench/`, give it the same "read capabilities → call the API → report
-what was observed" shape (optionally as its own finer skill): JTAG/debug
-(`workbench-debug`), and an HTTP-through-AP proxy.
+what was observed" shape (optionally as its own finer skill): an HTTP-through-AP
+proxy.
 
 (Shipped since: a signal generator (`/api/siggen`), UDP logging (`/api/udplog`),
 OTA serving (`/api/firmware` + `/firmware/<name>`), an embedded MQTT broker
-(`/api/mqtt/*`, TCP 1883), and network flashing over RFC2217 as `mcuflow bridge`.
-BLE (`/api/ble/scan`) is wired end to end and works in the simulator, but the
-on-silicon NimBLE scan resets the C3 - experimental, pending on-device debugging.)
+(`/api/mqtt/*`, TCP 1883), JTAG/debug via `mcuflow debug` (OpenOCD GDB server),
+and network flashing over RFC2217 as `mcuflow bridge`. BLE (`/api/ble/scan`) is
+wired end to end and works in the simulator, but the on-silicon NimBLE scan
+resets the C3 - experimental, pending on-device debugging.)
 
 ## Install
 

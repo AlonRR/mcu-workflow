@@ -341,7 +341,16 @@ def cmd_down(args, cfg, host_os, runner):
 # --- parsing ---------------------------------------------------------------
 
 
+FUNCS = {"up": cmd_up, "doctor": cmd_doctor, "usb": cmd_usb, "down": cmd_down}
+
+
 def build_parser():
+    # Flat parser (no subparsers): every option is accepted in any position
+    # relative to the subcommand, so all the orderings the docs show work - e.g.
+    # `--project . up --busid X --dry-run` puts globals on both sides of the
+    # subcommand. (Subparsers can't do that; the global has to sit on whichever
+    # side its parser owns.) Options that apply to only one subcommand (--fix,
+    # --busid/--device/--fresh) are simply ignored by the others.
     p = argparse.ArgumentParser(
         prog="mcuflow up", description="Launcher: open the cage, pass USB, seat the agent."
     )
@@ -351,48 +360,37 @@ def build_parser():
     p.add_argument("--image", default=None)
     p.add_argument("--name", default=None, help="container name")
     p.add_argument("--agent", default=None, help="agent command to run inside")
-    sub = p.add_subparsers(dest="cmd")
-
-    u = sub.add_parser("up", help="start or resume the cage (default)")
-    u.add_argument(
+    p.add_argument(
         "--device",
         action="append",
         default=None,
-        help="serial device to pass through (repeat for DUT + satellite)",
+        help="(up) serial device to pass through (repeat for DUT + satellite)",
     )
-    u.add_argument(
+    p.add_argument(
         "--busid",
         action="append",
         default=None,
-        help="(Windows) usbipd bus id to attach (repeat for two boards)",
+        help="(up, Windows) usbipd bus id to attach (repeat for two boards)",
     )
-    u.add_argument("--fresh", action="store_true", help="ignore any existing cage")
-    u.set_defaults(func=cmd_up)
-
-    dp = sub.add_parser("doctor", help="check prerequisites")
-    dp.add_argument(
+    p.add_argument("--fresh", action="store_true", help="(up) ignore any existing cage")
+    p.add_argument(
         "--fix",
         action="store_true",
-        help="install missing cage prerequisites (usbipd-win, Docker) "
+        help="(doctor) install missing cage prerequisites (usbipd-win, Docker) "
         "and pull the ESP-IDF image before checking",
     )
-    dp.set_defaults(func=cmd_doctor)
-    sub.add_parser("usb", help="list boards / passthrough plan").set_defaults(func=cmd_usb)
-    sub.add_parser("down", help="stop and remove the cage").set_defaults(func=cmd_down)
+    p.add_argument(
+        "cmd",
+        nargs="?",
+        default="up",
+        choices=["up", "doctor", "usb", "down"],
+        help="up (default) | doctor | usb | down",
+    )
     return p
 
 
 def main(argv=None):
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    # Default subcommand is "up".
-    if args.cmd is None:
-        args.cmd = "up"
-        args.func = cmd_up
-        args.device = getattr(args, "device", None)
-        args.busid = getattr(args, "busid", None)
-        args.fresh = getattr(args, "fresh", False)
-
+    args = build_parser().parse_args(argv)
     cfg = load_config(args.project)
     if args.image:
         cfg["image"] = args.image
@@ -401,7 +399,7 @@ def main(argv=None):
 
     host_os = detect_os(args.os)
     runner = Runner(args.dry_run)
-    return args.func(args, cfg, host_os, runner)
+    return FUNCS[args.cmd](args, cfg, host_os, runner)
 
 
 if __name__ == "__main__":

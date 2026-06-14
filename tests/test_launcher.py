@@ -101,6 +101,27 @@ def test_doctor_ready_when_daemon_up(monkeypatch, capsys):
     assert "ready: yes" in out and rc == up.EXIT_OK
 
 
+# --- misplaced single-subcommand flags are rejected, not silently ignored ----
+
+
+def test_reject_misplaced_flags():
+    p = up.build_parser()
+    # --fix belongs to doctor; with the default `up` it must be rejected
+    with pytest.raises(SystemExit):
+        up._reject_misplaced_flags(p, p.parse_args(["--fix"]))
+    # --busid belongs to up; on `usb` it must be rejected
+    with pytest.raises(SystemExit):
+        up._reject_misplaced_flags(p, p.parse_args(["usb", "--busid", "1-1"]))
+
+
+def test_accept_correct_flag_placement():
+    p = up.build_parser()
+    # these must NOT raise
+    up._reject_misplaced_flags(p, p.parse_args(["doctor", "--fix"]))
+    up._reject_misplaced_flags(p, p.parse_args(["--busid", "1-1", "up"]))
+    up._reject_misplaced_flags(p, p.parse_args(["--dry-run", "--project", "X", "up"]))
+
+
 def test_real_entry_without_agent_is_usage_error(tmp_path):
     # No cage.yaml in tmp_path -> no agent -> a non-dry-run entry must refuse.
     # --os windows skips the "docker not found" guard (which precedes the agent

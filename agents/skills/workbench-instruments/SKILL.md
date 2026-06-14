@@ -80,6 +80,13 @@ POST /api/mqtt/publish {"topic":"sensors/temp","payload":"24.1"}
 GET  /api/mqtt/recent                    # messages the broker has seen
 ```
 
+**BLE (scan).** `POST /api/ble/scan {"timeout":5}` -> `{devices:[{addr,name,
+rssi}]}` via the satellite's NimBLE observer. ⚠️ Known issue: on the ESP32-C3
+the on-silicon scan currently resets the satellite (the software path and the
+simulator work; the firmware crash needs on-device `idf.py monitor` debugging).
+Treat ble.scan as experimental on real hardware. `ble.write` is not supported
+(observer only).
+
 **Satellite health.** `POST /api/satellite/ping` -> `{"ok":true,"fw":...}`;
 `GET /api/satellite/caps` for what the attached satellite reports.
 
@@ -93,7 +100,7 @@ GET  /api/mqtt/recent                    # messages the broker has seen
 
 ## Not yet available here
 
-BLE and an HTTP-through-AP proxy are **not** implemented in this workbench (see
-`agents/skills/README.md` "Planned"). Don't call endpoints for them - check
-`/api/capabilities` and skip. (Network flashing over RFC2217 is available
-separately via `mcuflow bridge`.)
+An HTTP-through-AP proxy is **not** implemented in this workbench (see
+`agents/skills/README.md` "Planned"). Don't call endpoints for it - check
+`/api/capabilities` and skip. BLE scan is wired but experimental on hardware
+(see above). (Network flashing over RFC2217 is available via `mcuflow bridge`.)

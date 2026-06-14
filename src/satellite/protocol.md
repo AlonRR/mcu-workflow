@@ -19,8 +19,8 @@ the same line protocol can later run over TCP for a remotely-placed satellite.
 | `wifi.ap_start` | `ssid`, `password?`, `channel?` | `{"ok":true,"ip":"192.168.4.1"}` |
 | `wifi.ap_stop` | — | `{"ok":true}` |
 | `wifi.scan` | — | `{"ok":true,"networks":[{"ssid","rssi"}]}` |
-| `ble.scan` | `timeout?` | `{"ok":true,"devices":[{"addr","name","rssi"}]}` |
-| `ble.write` | `addr`, `char`, `data` (hex) | `{"ok":true}` |
+| `ble.scan` | `timeout?` | `{"ok":true,"devices":[{"addr","name","rssi"}]}` (NimBLE observer; experimental on hardware - currently resets the C3) |
+| `ble.write` | `addr`, `char`, `data` (hex) | not supported (observer only) |
 | `gpio.set` | `pin`, `value` (0/1) | `{"ok":true}` |
 | `gpio.get` | `pin` | `{"ok":true,"value":0}` |
 | `siggen.start` | `pin`, `freq?` (Hz), `duty?` (0-100) | `{"ok":true,"freq","duty"}` |

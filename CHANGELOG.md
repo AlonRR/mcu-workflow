@@ -36,6 +36,10 @@ All notable changes are documented here. The format follows
   sets the store.
 - Embedded MQTT broker (stdlib, QoS 0) on TCP 1883 (`--mqtt-port`), with
   `/api/mqtt/publish` and `/api/mqtt/recent` - no mosquitto needed.
+- BLE scan (`/api/ble/scan`): NimBLE observer on the satellite + workbench
+  endpoint + host driver + simulator. Software path and sim are verified; the
+  on-silicon scan currently resets the C3 (experimental, pending on-device
+  debugging - the panic isn't capturable over the USB-JTAG console headlessly).
 
 ### Changed
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,

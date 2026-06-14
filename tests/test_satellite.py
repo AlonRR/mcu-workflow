@@ -36,3 +36,16 @@ def test_siggen_duty_is_clamped():
 def test_siggen_requires_pin():
     sat = make_sim_satellite()
     assert sat.siggen_start(-1)["ok"] is False
+
+
+def test_caps_includes_ble():
+    assert "ble" in make_sim_satellite().caps()["capabilities"]
+
+
+def test_ble_scan_returns_devices():
+    devs = make_sim_satellite().ble_scan()["devices"]
+    assert devs and all({"addr", "name", "rssi"} <= set(d) for d in devs)
+
+
+def test_ble_write_is_unsupported():
+    assert make_sim_satellite().ble_write("aa:bb", "ff01", "00")["ok"] is False

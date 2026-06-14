@@ -26,6 +26,11 @@
 #include "driver/gpio.h"
 #include "driver/usb_serial_jtag.h"
 #include "driver/ledc.h"
+#include "freertos/semphr.h"
+#include "nimble/nimble_port.h"
+#include "nimble/nimble_port_freertos.h"
+#include "host/ble_hs.h"
+#include "host/ble_gap.h"
 #include "cJSON.h"
 
 #define FW "sat-idf-0.1"
@@ -222,6 +227,109 @@ static void handle_siggen_stop(void) {
     reply_ok();
 }
 
+// --- ble (NimBLE observer: ble.scan) ----------------------------------------
+#define BLE_MAX_RESULTS 24
+typedef struct {
+    char addr[18];
+    char name[32];
+    int rssi;
+} ble_dev_t;
+static ble_dev_t s_ble[BLE_MAX_RESULTS];
+static int s_ble_n = 0;
+static SemaphoreHandle_t s_ble_mtx;
+static SemaphoreHandle_t s_ble_done;
+static volatile bool s_ble_ready = false;
+
+static void ble_addr_str(const ble_addr_t *a, char *out) {
+    const uint8_t *v = a->val;  // NimBLE stores the address little-endian
+    sprintf(out, "%02x:%02x:%02x:%02x:%02x:%02x", v[5], v[4], v[3], v[2], v[1], v[0]);
+}
+
+static int ble_gap_event(struct ble_gap_event *event, void *arg) {
+    if (event->type == BLE_GAP_EVENT_DISC) {
+        char addr[18];
+        ble_addr_str(&event->disc.addr, addr);
+        xSemaphoreTake(s_ble_mtx, portMAX_DELAY);
+        bool seen = false;
+        for (int i = 0; i < s_ble_n; i++) {
+            if (!strcmp(s_ble[i].addr, addr)) { seen = true; break; }
+        }
+        if (!seen && s_ble_n < BLE_MAX_RESULTS) {
+            ble_dev_t *d = &s_ble[s_ble_n++];
+            strlcpy(d->addr, addr, sizeof(d->addr));
+            d->rssi = event->disc.rssi;
+            d->name[0] = '\0';
+            struct ble_hs_adv_fields f;
+            if (ble_hs_adv_parse_fields(&f, event->disc.data, event->disc.length_data) == 0 &&
+                f.name_len > 0) {
+                int n = f.name_len < (int)sizeof(d->name) - 1 ? f.name_len : (int)sizeof(d->name) - 1;
+                memcpy(d->name, f.name, n);
+                d->name[n] = '\0';
+            }
+        }
+        xSemaphoreGive(s_ble_mtx);
+    } else if (event->type == BLE_GAP_EVENT_DISC_COMPLETE) {
+        xSemaphoreGive(s_ble_done);
+    }
+    return 0;
+}
+
+static void ble_on_sync(void) { s_ble_ready = true; }
+static void ble_host_task(void *param) {
+    nimble_port_run();
+    nimble_port_freertos_deinit();
+}
+
+static void ble_init_once(void) {
+    static bool done = false;
+    if (done) return;
+    s_ble_mtx = xSemaphoreCreateMutex();
+    s_ble_done = xSemaphoreCreateBinary();
+    nimble_port_init();
+    ble_hs_cfg.sync_cb = ble_on_sync;
+    nimble_port_freertos_init(ble_host_task);
+    done = true;
+}
+
+static void handle_ble_scan(cJSON *req) {
+    ble_init_once();
+    const cJSON *jt = cJSON_GetObjectItem(req, "timeout");
+    int secs = cJSON_IsNumber(jt) ? jt->valueint : 4;
+    if (secs < 1) secs = 1;
+    if (secs > 15) secs = 15;
+    for (int i = 0; i < 150 && !s_ble_ready; i++) vTaskDelay(pdMS_TO_TICKS(20));
+    if (!s_ble_ready) { reply_err("ble stack not ready"); return; }
+
+    xSemaphoreTake(s_ble_mtx, portMAX_DELAY);
+    s_ble_n = 0;
+    xSemaphoreGive(s_ble_mtx);
+
+    uint8_t own_addr_type;
+    if (ble_hs_id_infer_auto(0, &own_addr_type) != 0) { reply_err("ble no identity"); return; }
+    struct ble_gap_disc_params dp = {0};
+    dp.passive = 1;
+    if (ble_gap_disc(own_addr_type, secs * 1000, &dp, ble_gap_event, NULL) != 0) {
+        reply_err("ble scan start failed");
+        return;
+    }
+    xSemaphoreTake(s_ble_done, pdMS_TO_TICKS(secs * 1000 + 1500));
+
+    cJSON *r = cJSON_CreateObject();
+    cJSON_AddBoolToObject(r, "ok", true);
+    cJSON *arr = cJSON_AddArrayToObject(r, "devices");
+    xSemaphoreTake(s_ble_mtx, portMAX_DELAY);
+    for (int i = 0; i < s_ble_n; i++) {
+        cJSON *o = cJSON_CreateObject();
+        cJSON_AddStringToObject(o, "addr", s_ble[i].addr);
+        cJSON_AddStringToObject(o, "name", s_ble[i].name);
+        cJSON_AddNumberToObject(o, "rssi", s_ble[i].rssi);
+        cJSON_AddItemToArray(arr, o);
+    }
+    xSemaphoreGive(s_ble_mtx);
+    send_line(r);
+    cJSON_Delete(r);
+}
+
 // --- dispatch ---------------------------------------------------------------
 static void handle_line(char *line) {
     cJSON *req = cJSON_Parse(line);
@@ -241,6 +349,7 @@ static void handle_line(char *line) {
         cJSON_AddItemToArray(a, cJSON_CreateString("wifi"));
         cJSON_AddItemToArray(a, cJSON_CreateString("gpio"));
         cJSON_AddItemToArray(a, cJSON_CreateString("siggen"));
+        cJSON_AddItemToArray(a, cJSON_CreateString("ble"));
         send_line(r); cJSON_Delete(r);
     } else if (!strcmp(cmd, "wifi.ap_start")) {
         handle_ap_start(req);
@@ -256,8 +365,10 @@ static void handle_line(char *line) {
         handle_siggen_start(req);
     } else if (!strcmp(cmd, "siggen.stop")) {
         handle_siggen_stop();
-    } else if (!strcmp(cmd, "ble.scan") || !strcmp(cmd, "ble.write")) {
-        reply_err("ble not built in this image");
+    } else if (!strcmp(cmd, "ble.scan")) {
+        handle_ble_scan(req);
+    } else if (!strcmp(cmd, "ble.write")) {
+        reply_err("ble.write not supported (scan/observer only)");
     } else {
         char msg[64];
         snprintf(msg, sizeof(msg), "unknown cmd: %s", cmd);

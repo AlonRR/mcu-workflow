@@ -79,12 +79,13 @@ class Satellite:
                 return obj, last
         return None, last
 
-    def _rpc(self, cmd, **kw):
+    def _rpc(self, cmd, _wait=None, **kw):
         # Send exactly once (no resends -> no duplicate replies to desync the
-        # stream), after draining any stale input.
+        # stream), after draining any stale input. `_wait` overrides read_window
+        # for commands that block the firmware longer (e.g. ble.scan).
         self._drain()
         self._send((json.dumps({"cmd": cmd, **kw}) + "\n").encode("utf-8"))
-        obj, last = self._read_reply(time.monotonic() + self.read_window)
+        obj, last = self._read_reply(time.monotonic() + (_wait or self.read_window))
         if obj is not None:
             return obj
         return {
@@ -126,7 +127,9 @@ class Satellite:
         return self._rpc("wifi.scan")
 
     def ble_scan(self, timeout=5):
-        return self._rpc("ble.scan", timeout=timeout)
+        # The firmware blocks for the whole scan, then replies - wait past it
+        # (plus margin for the first-scan NimBLE bring-up).
+        return self._rpc("ble.scan", timeout=timeout, _wait=timeout + 8)
 
     def ble_write(self, addr, char, data_hex):
         return self._rpc("ble.write", addr=addr, char=char, data=data_hex)

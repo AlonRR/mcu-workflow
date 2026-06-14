@@ -31,6 +31,7 @@ Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/siggen/stop        -> {"ok": true}
   /api/firmware/upload    {name, data_b64}            -> {"ok": true, "url", ...}
   /api/mqtt/publish       {topic, payload}            -> {"ok": true}  (+broker on :1883)
+  /api/ble/scan           {timeout?}                  -> {"ok": true, "devices": [...]}
 
 Run:  python workbench.py --port 6283                       # binds 0.0.0.0
       python workbench.py --satellite sim                   # emulated radios
@@ -352,6 +353,16 @@ class Handler(BaseHTTPRequestHandler):
             )
         elif p == "/api/siggen/stop":
             self._send(self._sat_call(lambda s: s.siggen_stop()))
+        elif p == "/api/ble/scan":
+            self._send(self._sat_call(lambda s: s.ble_scan(body.get("timeout", 4))))
+        elif p == "/api/ble/write":
+            for k in ("addr", "char", "data"):
+                if k not in body:
+                    self._send({"ok": False, "error": k + " required"}, code=400)
+                    return
+            self._send(
+                self._sat_call(lambda s: s.ble_write(body["addr"], body["char"], body["data"]))
+            )
         else:
             self._send({"ok": False, "error": "not found: " + p}, code=404)
 

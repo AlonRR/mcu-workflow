@@ -464,8 +464,31 @@ def verb_hil(args, board=None):
     return emit(out, args.json, lines)
 
 
+def _autodetect_dut_satellite():
+    """Best-effort detect of connected boards -> (dut, satellite, n_boards, reason).
+
+    Reuses the port viewer's logic so `run` and the viewer agree. dut/satellite
+    may be None; never raises (returns a reason on failure).
+    """
+    try:
+        pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+        ports = pv.list_ports_info()
+        nboards = len(pv.boards(ports))
+        mapping, reason = pv.suggest_roles(ports)
+    except Exception as ex:
+        return None, None, 0, "port autodetect unavailable: " + str(ex)
+    dut = next((d for d, r in mapping.items() if r == "DUT"), None)
+    sat = next((d for d, r in mapping.items() if r == "satellite"), None)
+    return dut, sat, nboards, reason
+
+
 def verb_run(args):
-    """End-to-end: validate -> scaffold -> build -> flash -> hil. Honors --sim."""
+    """End-to-end: validate -> scaffold -> build -> flash -> hil. Honors --sim.
+
+    On real hardware (no --sim) with no explicit --port, the DUT port is
+    auto-detected from the connected boards and the choice is narrated as a
+    "ports" stage, so the automatic assignment is visible rather than silent.
+    """
     stages = []
 
     def add(name, rc, detail):
@@ -501,11 +524,42 @@ def verb_run(args):
             # Show every line of the stage that decided the result, and of the
             # hil stage (its per-step PASS/FAIL + DUT serial is the whole point);
             # other passing stages get a short head so the summary stays scannable.
-            show = detail if (not s["ok"] or s["stage"] == "hil") else detail[:3]
+            show = detail if (not s["ok"] or s["stage"] in ("hil", "ports")) else detail[:3]
             for ln in show:
                 lines.append("        " + ln)
         lines.append("RESULT: " + ("PASS" if code == EXIT_OK else "FAIL"))
         return emit(out, args.json, lines)
+
+    # 0. ports - resolve the DUT (and note the satellite) from connected boards
+    #    when running on real hardware without an explicit --port. Narrated as a
+    #    stage so the automatic choice is visible, never silent.
+    port = getattr(args, "port", None)
+    if not args.sim:
+        if port:
+            add("ports", EXIT_OK, "using --port " + port + " for the DUT")
+        else:
+            dut, sat, nboards, reason = _autodetect_dut_satellite()
+            if dut:
+                port = dut
+                detail = "auto-detected " + str(nboards) + " board(s): " + dut + " = DUT"
+                if sat:
+                    detail += ", " + sat + " = satellite"
+                detail += "\nwhy: " + reason
+                if sat and not getattr(args, "workbench", None):
+                    detail += (
+                        "\nsatellite found - start it with `mcuflow workbench --satellite "
+                        + sat
+                        + "`"
+                    )
+                add("ports", EXIT_OK, detail)
+            else:
+                add(
+                    "ports",
+                    EXIT_OK,
+                    "no board auto-detected ("
+                    + reason
+                    + "); flashing will use the toolchain default - pass --port to pin it",
+                )
 
     # 1. validate
     vt = _validator_path()
@@ -553,7 +607,7 @@ def verb_run(args):
         return finish(EXIT_NOTOOL)
 
     # 4. flash  (native toolchain via the adapter; else the platform's host flash).
-    port = getattr(args, "port", None)
+    #    `port` was resolved in the ports stage above (explicit --port or auto).
     flash_cmd = adapter.flash_cmd(str(out_dir), port)
     if args.sim:
         add("flash", EXIT_OK, "[sim] flash ok")

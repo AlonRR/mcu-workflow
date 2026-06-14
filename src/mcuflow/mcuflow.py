@@ -1323,26 +1323,41 @@ def build_parser():
     return p
 
 
+def _global_flag_strings(parser):
+    """Top-level (pre-subcommand) option strings, e.g. {'--json', '--sim'}.
+
+    Derived from the parser so the passthrough skip-set below can't drift from
+    the real globals - add a global to build_parser() and this updates with it.
+    """
+    flags = set()
+    for a in parser._actions:
+        if isinstance(a, argparse._SubParsersAction) or a.dest == "help":
+            continue
+        flags.update(a.option_strings)
+    return flags
+
+
 def main(argv=None):
     # Run under the project's uv-managed .venv if one exists (re-execs once).
     _maybe_reexec_into_venv()
     argv = list(sys.argv[1:] if argv is None else argv)
+    parser = build_parser()
     # Delegate wrapped tools before argparse, so their own flags pass through
     # cleanly (e.g. `mcuflow workbench --satellite sim`, `mcuflow up --dry-run`).
-    # Skip any leading global flags first so this also fires for
-    # `mcuflow --sim up ...`; argparse's REMAINDER would otherwise drop the
-    # leading passthrough option (bpo-17050).
+    # Skip any leading global flags first (derived from the parser, so the set
+    # can't drift) so this also fires for `mcuflow --sim up ...`; argparse's
+    # REMAINDER would otherwise drop the leading passthrough option (bpo-17050).
     passthrough = {
         "up": ("mcuflow_launcher", "launcher/up.py"),
         "workbench": ("mcuflow_workbench", "workbench/workbench.py"),
     }
+    globals_ = _global_flag_strings(parser)
     i = 0
-    while i < len(argv) and argv[i] in ("--json", "--sim"):
+    while i < len(argv) and argv[i] in globals_:
         i += 1
     if i < len(argv) and argv[i] in passthrough:
         mod, rel = passthrough[argv[i]]
         return _load_sibling(mod, rel).main(argv[i + 1 :])
-    parser = build_parser()
     args = parser.parse_args(argv)
     if not hasattr(args, "sim"):
         args.sim = False

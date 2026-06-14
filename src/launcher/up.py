@@ -324,8 +324,16 @@ def cmd_up(args, cfg, host_os, runner):
             return EXIT_USAGE
     agent_argv = agent.split()
 
-    # Resume an existing cage if present (workspace mount persists).
+    # Resume an existing cage if present (workspace mount persists). Docker can't
+    # add device mappings to an already-created container, so warn if boards were
+    # passed for a resume - they won't be attached without a fresh cage.
     state = container_state(cfg, runner)
+    if state in ("running", "stopped") and not args.fresh and (args.busid or args.device):
+        print(
+            "note: --busid/--device are ignored when resuming an existing cage; "
+            "pass --fresh to recreate it with the new board(s).",
+            file=sys.stderr,
+        )
     if state == "running" and not args.fresh:
         print("Resuming running cage '" + cfg["container"] + "' (exec agent):")
         return runner.run(
@@ -375,6 +383,12 @@ def cmd_down(args, cfg, host_os, runner):
 
 FUNCS = {"up": cmd_up, "doctor": cmd_doctor, "usb": cmd_usb, "down": cmd_down}
 
+# Flags that belong to one subcommand. The flat parser accepts them in any
+# position, so we reject them when paired with the wrong subcommand instead of
+# silently ignoring them - e.g. `mcuflow up --fix` is a typo for `up doctor
+# --fix` and must not quietly start a cage.
+SUBCMD_FLAGS = {"fix": "doctor", "busid": "up", "device": "up", "fresh": "up"}
+
 
 def build_parser():
     # Flat parser (no subparsers): every option is accepted in any position
@@ -415,14 +429,32 @@ def build_parser():
         "cmd",
         nargs="?",
         default="up",
-        choices=["up", "doctor", "usb", "down"],
+        choices=list(FUNCS),
         help="up (default) | doctor | usb | down",
     )
     return p
 
 
+def _reject_misplaced_flags(parser, args):
+    """Error if a single-subcommand flag is paired with the wrong subcommand.
+
+    The flat parser accepts these flags in any position, so without this they'd
+    be silently ignored on the wrong verb (e.g. `up --fix` quietly starting a
+    cage instead of running doctor). `getattr` is falsy unless the flag was given.
+    """
+    for flag, owner in SUBCMD_FLAGS.items():
+        if getattr(args, flag) and args.cmd != owner:
+            inv = "mcuflow up --" + flag if owner == "up" else "mcuflow up " + owner + " --" + flag
+            parser.error(
+                "--%s applies to the `%s` subcommand, not `%s` (try: %s)"
+                % (flag, owner, args.cmd, inv)
+            )
+
+
 def main(argv=None):
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    _reject_misplaced_flags(parser, args)
     cfg = load_config(args.project)
     if args.image:
         cfg["image"] = args.image

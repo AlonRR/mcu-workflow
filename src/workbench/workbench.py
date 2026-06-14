@@ -18,6 +18,7 @@ Read endpoints (GET, JSON):
   /api/udplog?source&n    device logs received over UDP (newest n; filter by ip)
   /api/firmware           list OTA images available to serve
   /firmware/<name>        download an OTA image (point the DUT's OTA URL here)
+  /api/mqtt/recent        recent messages seen by the embedded MQTT broker
 
 Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/satellite/ping     -> {"ok": true, "fw": ...}
@@ -29,6 +30,7 @@ Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/siggen/start       {pin, freq?, duty?}         -> {"ok": true, "freq", "duty"}
   /api/siggen/stop        -> {"ok": true}
   /api/firmware/upload    {name, data_b64}            -> {"ok": true, "url", ...}
+  /api/mqtt/publish       {topic, payload}            -> {"ok": true}  (+broker on :1883)
 
 Run:  python workbench.py --port 6283                       # binds 0.0.0.0
       python workbench.py --satellite sim                   # emulated radios
@@ -162,6 +164,7 @@ class Handler(BaseHTTPRequestHandler):
     satellite = None
     sat_info = {"backend": "none"}
     sat_lock = threading.Lock()
+    mqtt = None  # embedded MQTT broker, if started
 
     def _send(self, obj, code=200):
         body = json.dumps(obj).encode("utf-8")
@@ -249,6 +252,9 @@ class Handler(BaseHTTPRequestHandler):
             except OSError:
                 names = []
             self._send({"ok": True, "firmware": names})
+        elif self.path == "/api/mqtt/recent":
+            msgs = list(self.mqtt.recent) if self.mqtt else []
+            self._send({"ok": True, "messages": msgs})
         elif self.path.startswith("/firmware/"):
             name = _safe_name(self.path[len("/firmware/") :])
             path = os.path.join(FIRMWARE_DIR, name) if name else None
@@ -291,6 +297,18 @@ class Handler(BaseHTTPRequestHandler):
                     "url": "http://" + host + "/firmware/" + name,
                 }
             )
+            return
+        # MQTT publish goes to the embedded broker; no satellite needed.
+        if self.path == "/api/mqtt/publish":
+            if not self.mqtt:
+                self._send({"ok": False, "error": "mqtt broker not running"}, code=503)
+                return
+            topic = body.get("topic")
+            if not topic:
+                self._send({"ok": False, "error": "topic required"}, code=400)
+                return
+            self.mqtt.publish(topic, body.get("payload", ""))
+            self._send({"ok": True, "topic": topic})
             return
         if not self._need_sat():
             return
@@ -370,6 +388,12 @@ def main(argv=None):
         default=FIRMWARE_DIR,
         help="directory of OTA firmware images served at /firmware/<name>",
     )
+    ap.add_argument(
+        "--mqtt-port",
+        type=int,
+        default=1883,
+        help="TCP port for the embedded MQTT broker (0 to disable)",
+    )
     args = ap.parse_args(argv)
 
     FIRMWARE_DIR = args.firmware_dir
@@ -382,6 +406,14 @@ def main(argv=None):
     Handler.satellite = satellite
     Handler.sat_info = sat_info
     Handler.caps = detect_capabilities(extra, satellite)
+
+    if args.mqtt_port:
+        from workbench.mqtt_broker import Broker
+
+        broker = Broker()
+        threading.Thread(target=broker.serve, args=(args.host, args.mqtt_port), daemon=True).start()
+        Handler.mqtt = broker
+        Handler.caps["mqtt"] = True
 
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
     print(

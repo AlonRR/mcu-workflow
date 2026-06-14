@@ -25,11 +25,11 @@ skills above deliberately don't reference them — an agent should check
 `GET /api/capabilities` and skip what's absent. As each lands in
 `src/workbench/`, give it the same "read capabilities → call the API → report
 what was observed" shape (optionally as its own finer skill): BLE
-(`workbench-ble`), MQTT (`workbench-mqtt`), and JTAG/debug (`workbench-debug`).
+(`workbench-ble`) and JTAG/debug (`workbench-debug`).
 
 (Shipped since: a signal generator (`/api/siggen`), UDP logging (`/api/udplog`),
-OTA serving (`/api/firmware` + `/firmware/<name>`), and network flashing over
-RFC2217 as `mcuflow bridge`.)
+OTA serving (`/api/firmware` + `/firmware/<name>`), an embedded MQTT broker
+(`/api/mqtt/*`, TCP 1883), and network flashing over RFC2217 as `mcuflow bridge`.)
 
 ## Install
 

@@ -175,8 +175,54 @@ def format_report(ports):
     return "\n".join(lines)
 
 
+def report(ports=None):
+    """A structured snapshot of the same view (for --json / programmatic use).
+
+    Shape: {ports: [{device, kind, label, role, serial, vid, pid, description,
+    manufacturer}], boards: <count>, mapping: {device: role}, reason: <str>,
+    commands: [<str>], dut: <device|null>, satellite: <device|null>}.
+    The single source the extension's Boards tree and auto-detect consume.
+    """
+    if ports is None:
+        ports = list_ports_info()
+    mapping, reason = suggest_roles(ports)
+    rows = []
+    for p in ports:
+        kind, label = classify(p)
+        rows.append(
+            {
+                "device": p["device"],
+                "kind": kind,
+                "label": label,
+                "role": mapping.get(p["device"], ""),
+                "serial": p["serial"],
+                "vid": p["vid"],
+                "pid": p["pid"],
+                "description": p["description"],
+                "manufacturer": p["manufacturer"],
+            }
+        )
+    dut, sat = roles_to_ports(mapping)
+    return {
+        "ports": rows,
+        "boards": len(boards(ports)),
+        "mapping": mapping,
+        "reason": reason,
+        "commands": render_commands(mapping),
+        "dut": dut,
+        "satellite": sat,
+    }
+
+
 def run_list():
     print(format_report(list_ports_info()))
+    return 0
+
+
+def run_json():
+    import json
+
+    print(json.dumps(report(), indent=2))
     return 0
 
 
@@ -296,10 +342,13 @@ def main(argv=None):
         prog="mcuflow ports", description="View connected boards and how their COM ports map."
     )
     ap.add_argument("--list", action="store_true", help="print the view once as text (no window)")
+    ap.add_argument("--json", action="store_true", help="print the view once as JSON (no window)")
     ap.add_argument(
         "--watch", action="store_true", help="open hidden and pop up when a board is plugged in"
     )
     args = ap.parse_args(argv)
+    if args.json:
+        return run_json()
     if args.list:
         return run_list()
     return run_gui(watch=args.watch)

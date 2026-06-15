@@ -95,3 +95,22 @@ def test_format_report_is_text_and_mentions_boards():
     report = pv.format_report([C3_A, C3_B, OTHER])
     assert "boards found: 2" in report
     assert "DUT" in report and "satellite" in report
+
+
+def test_report_is_structured_snapshot():
+    # the shape the VS Code extension's Boards tree consumes
+    r = pv.report([C3_A, C3_B, OTHER])
+    assert r["boards"] == 2
+    assert r["dut"] == "COM3" and r["satellite"] == "COM7"
+    assert r["mapping"] == {"COM3": "DUT", "COM7": "satellite"}
+    assert len(r["ports"]) == 3
+    kinds = {row["device"]: row["kind"] for row in r["ports"]}
+    assert kinds == {"COM3": "board", "COM7": "board", "COM1": "other"}
+    assert any("workbench --satellite COM7" in c for c in r["commands"])
+
+
+def test_report_no_board_is_empty_mapping():
+    r = pv.report([OTHER])
+    assert r["boards"] == 0
+    assert r["dut"] is None and r["satellite"] is None
+    assert r["mapping"] == {}

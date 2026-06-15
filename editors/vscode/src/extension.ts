@@ -8,18 +8,15 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
-import { resolve, runJson, isWorkspaceMcuflow, portableLauncher, detectIsProject, Resolved } from "./cli";
+import { resolve, runJson, isWorkspaceMcuflow, detectIsProject, Resolved } from "./cli";
 import { McuflowTree } from "./tree";
-import { buildBoardYaml, CHIPS, DEVICE_CATALOG, NewProjectOpts } from "./newproject";
+import { buildBoardYaml, CHIPS, DEVICE_CATALOG, NewProjectOpts, CONFIGURE_MARKER } from "./newproject";
 import { showHome } from "./home";
+import { showNewProjectPanel } from "./newprojectpanel";
 
 let selectedPort: string | undefined;
 let portStatus: vscode.StatusBarItem;
 const terminals = new Map<string, vscode.Terminal>();
-
-// Dropped into a new project's .vscode/ by New Project; on the next activation
-// (after the folder opens) it triggers the Configure step, then is deleted.
-const CONFIGURE_MARKER = ".mcuflow-configure";
 
 export function activate(context: vscode.ExtensionContext) {
   selectedPort = context.workspaceState.get<string>("mcuflow.port");
@@ -212,7 +209,7 @@ export function activate(context: vscode.ExtensionContext) {
   reg("mcuflow.refresh", refreshAll);
 
   // --- new project (folder + name -> open -> configure params -> refine) -----
-  reg("mcuflow.newProject", () => runNewProject(context));
+  reg("mcuflow.newProject", () => showNewProjectPanel(context));
   reg("mcuflow.configureProject", (fileArg?: string) => runConfigureProject(fileArg));
   reg("mcuflow.refineWithAgent", (fileArg?: string) => runRefineWithAgent(fileArg));
 
@@ -308,89 +305,8 @@ function updatePortStatus(): void {
 
 // --- new project: step 0 -----------------------------------------------------
 
-async function runNewProject(context: vscode.ExtensionContext): Promise<void> {
-  // 1) Where it lives: pick a parent folder, then a project name.
-  const parentPick = await vscode.window.showOpenDialog({
-    canSelectFolders: true,
-    canSelectFiles: false,
-    canSelectMany: false,
-    openLabel: "Create project here",
-    title: "MCU Flow: choose a parent folder for the new project",
-  });
-  if (!parentPick || parentPick.length === 0) {
-    return;
-  }
-  const parent = parentPick[0].fsPath;
-
-  const name = (
-    await vscode.window.showInputBox({
-      prompt: "Project name (folder + board.yml meta.project)",
-      value: "my-mcu-project",
-      validateInput: (v) =>
-        /^[A-Za-z0-9._-]+$/.test(v.trim()) ? null : "Use letters, digits, dot, dash, underscore.",
-    })
-  )?.trim();
-  if (!name) {
-    return;
-  }
-
-  // 2) Create a minimal, valid board.yml now. The project PARAMETERS (chip,
-  //    devices, test) are configured AFTER the folder opens - we drop a marker
-  //    that activate() picks up to run Configure. Defaults here are a C3 blinky;
-  //    Configure rewrites them.
-  const yaml = buildBoardYaml({ project: name, chip: "esp32c3", devices: [], needs: ["serial"] });
-  const projDir = vscode.Uri.file(path.join(parent, name));
-  const boardFile = vscode.Uri.joinPath(projDir, "board.yml");
-  try {
-    await vscode.workspace.fs.createDirectory(projDir);
-    // Don't clobber an existing board.yml.
-    let clobber = false;
-    try {
-      await vscode.workspace.fs.stat(boardFile);
-      clobber = true;
-    } catch {
-      /* doesn't exist - good */
-    }
-    if (clobber) {
-      const go = await vscode.window.showWarningMessage(
-        `board.yml already exists in ${name}. Overwrite?`,
-        { modal: true },
-        "Overwrite"
-      );
-      if (go !== "Overwrite") {
-        return;
-      }
-    }
-    await vscode.workspace.fs.writeFile(boardFile, Buffer.from(yaml, "utf8"));
-
-    // Make the new folder a usable mcuflow workspace (point it at this CLI
-    // install + board.yml), and drop the Configure marker.
-    const settings: Record<string, unknown> = { "mcuflow.boardFile": "board.yml" };
-    const launcher = portableLauncher();
-    if (launcher) {
-      settings["mcuflow.path"] = launcher;
-    }
-    await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(projDir, ".vscode"));
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.joinPath(projDir, ".vscode", "settings.json"),
-      Buffer.from(JSON.stringify(settings, null, 2) + "\n", "utf8")
-    );
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.joinPath(projDir, ".vscode", CONFIGURE_MARKER),
-      Buffer.from("board.yml\n", "utf8")
-    );
-  } catch (e: any) {
-    vscode.window.showErrorMessage(`Could not create project: ${e.message ?? e}`);
-    return;
-  }
-
-  // 3) Open the new folder. Reuse the current window so it inherits THIS
-  //    window's profile (the one the extension is installed in) - a forced new
-  //    window on a brand-new folder would land in the Default profile, where the
-  //    extension isn't installed and the Configure marker would never fire. On
-  //    reload, activate() sees the marker and runs Configure.
-  await vscode.commands.executeCommand("vscode.openFolder", projDir, { forceNewWindow: false });
-}
+// New Project opens an in-editor panel (location + name); creation + the
+// post-open Configure step live in newprojectpanel.ts / runConfigureProject.
 
 // Configure an existing project's parameters: the chip/devices/test form. Run
 // automatically after New Project opens (via the marker), or on demand.

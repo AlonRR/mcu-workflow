@@ -34,6 +34,24 @@ export const DEVICE_CATALOG: Record<string, DeviceSpec> = {
 
 export const CHIPS = ["esp32c3", "esp32", "esp32s3", "esp32c6"];
 
+// Dropped into a new project's .vscode/ by New Project; on the next activation
+// (after the folder opens) it triggers the Configure step, then is deleted.
+export const CONFIGURE_MARKER = ".mcuflow-configure";
+
+/** Validate the New Project form. Returns an error string, or null if OK. */
+export function validateNewProject(name: string, location: string): string | null {
+  if (!location.trim()) {
+    return "Choose a location.";
+  }
+  if (!name.trim()) {
+    return "Enter a project name.";
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(name.trim())) {
+    return "Name: use only letters, digits, dot, dash, underscore.";
+  }
+  return null;
+}
+
 export interface NewProjectOpts {
   project: string;
   chip: string;

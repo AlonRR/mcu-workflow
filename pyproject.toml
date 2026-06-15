@@ -25,7 +25,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "pre-commit"]
+# ipykernel: VS Code Jupyter Interactive Window / notebooks on the project venv.
+dev = [
+    "pytest",
+    "ruff", 
+    "pre-commit", 
+    "ipykernel",
+]
 
 [project.urls]
 # Replace OWNER/REPO once the project is on GitHub.
@@ -37,8 +43,9 @@ Issues = "https://github.com/OWNER/REPO/issues"
 mcuflow = "mcuflow.mcuflow:main"
 
 # src/ layout: the importable package is `mcuflow`. The other modules under src/
-# (board-schema, sim, satellite, ...) are loaded by the CLI at runtime from the
-# source tree, so an editable install (`pip install -e .`) is the supported mode.
+# (board-schema, sim, satellite, portviewer, serialbridge, debugger, workbench)
+# are loaded by the CLI at runtime from the source tree, so an editable install
+# is the supported mode: `uv pip install -e ".[dev]"`.
 [tool.setuptools]
 package-dir = { "" = "src" }
 

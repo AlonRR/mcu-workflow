@@ -8,7 +8,7 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
-import { resolve, runJson, isWorkspaceMcuflow, portableLauncher, Resolved } from "./cli";
+import { resolve, runJson, isWorkspaceMcuflow, portableLauncher, detectIsProject, Resolved } from "./cli";
 import { McuflowTree } from "./tree";
 import { buildBoardYaml, CHIPS, DEVICE_CATALOG, NewProjectOpts } from "./newproject";
 
@@ -24,25 +24,40 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(view);
 
   // --- status bar: Build · Flash · Monitor · Port ---------------------------
+  // Created hidden; shown only in a detected MCU project (see updateProjectContext).
   const items: vscode.StatusBarItem[] = [];
   const mk = (text: string, tip: string, cmd: string, priority: number) => {
     const it = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
     it.text = text;
     it.tooltip = tip;
     it.command = cmd;
-    it.show();
     items.push(it);
     context.subscriptions.push(it);
     return it;
   };
-  mk("$(rocket) MCU", "MCU Flow: set up project", "mcuflow.setup", 100);
   mk("$(tools) Build", "mcuflow build", "mcuflow.build", 99);
   mk("$(zap) Flash", "mcuflow flash", "mcuflow.flash", 98);
   mk("$(pulse) Monitor", "mcuflow monitor", "mcuflow.monitor", 97);
   portStatus = mk("$(plug) Port", "Select board / port", "mcuflow.pickPort", 96);
   updatePortStatus();
 
+  // Reveal the view + status bar only when this workspace is an MCU project
+  // (board.yml / repo markers), the way PlatformIO keys off platformio.ini.
+  let isProject = false;
+  const updateProjectContext = async () => {
+    isProject = await detectIsProject();
+    await vscode.commands.executeCommand("setContext", "mcuflow.isProject", isProject);
+    for (const it of items) {
+      isProject ? it.show() : it.hide();
+    }
+  };
+  void updateProjectContext();
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => void updateProjectContext())
+  );
+
   const refreshAll = () => {
+    void updateProjectContext();
     tree.refresh();
     updatePortStatus();
   };

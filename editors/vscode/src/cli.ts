@@ -125,21 +125,57 @@ export function resolve(): Resolved | undefined {
     };
   }
 
-  // 4) `mcuflow` on PATH.
-  // We can't cheaply verify PATH here; assume present and let the call surface a
-  // clear error if not. Callers treat "no workspace markers" as a setup prompt
-  // only when the workspace clearly isn't an mcuflow project.
-  if (!isWorkspaceMcuflow(root)) {
-    return undefined;
+  // 4) `mcuflow` on PATH - only if it's actually there. Returning undefined
+  //    otherwise lets the tree show a clean "set up" state instead of running a
+  //    non-existent CLI and rendering error rows.
+  if (mcuflowOnPath()) {
+    return {
+      cwd: root,
+      exec: { file: "mcuflow", baseArgs: [], shell: isWin },
+      binDir: "",
+      term: "mcuflow",
+      env,
+      how: "mcuflow on PATH",
+    };
   }
-  return {
-    cwd: root,
-    exec: { file: "mcuflow", baseArgs: [], shell: isWin },
-    binDir: "",
-    term: "mcuflow",
-    env,
-    how: "mcuflow on PATH",
-  };
+  return undefined;
+}
+
+/** Is an `mcuflow` launcher on PATH? A cheap filesystem scan, no spawn. */
+export function mcuflowOnPath(): boolean {
+  const names = isWin ? ["mcuflow.bat", "mcuflow.cmd", "mcuflow.exe", "mcuflow"] : ["mcuflow"];
+  const dirs = (process.env.PATH ?? "").split(isWin ? ";" : ":");
+  for (const d of dirs) {
+    if (!d) {
+      continue;
+    }
+    for (const n of names) {
+      if (exists(path.join(d, n))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * Does the open workspace look like an MCU project? Drives the `mcuflow.isProject`
+ * context key that reveals the view (PlatformIO-style: show only when a project
+ * is detected). True if any workspace-folder root has mcuflow markers, or a
+ * board.yml exists anywhere in the tree.
+ */
+export async function detectIsProject(): Promise<boolean> {
+  for (const f of vscode.workspace.workspaceFolders ?? []) {
+    if (isWorkspaceMcuflow(f.uri.fsPath)) {
+      return true;
+    }
+  }
+  const hits = await vscode.workspace.findFiles(
+    "**/board.yml",
+    "**/{node_modules,.venv,.git,build-out,managed_components}/**",
+    1
+  );
+  return hits.length > 0;
 }
 
 /**

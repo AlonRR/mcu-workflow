@@ -81,10 +81,24 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
     }
     const r = resolve();
     if (!r) {
-      const setup = new Node("Set up project…", "action", vscode.TreeItemCollapsibleState.None);
+      // The view only shows for a detected project, so reaching here means the
+      // board.yml is present but the mcuflow CLI isn't wired up yet.
+      const head = this.info("MCU project detected — mcuflow CLI not found");
+      const setup = new Node(
+        "Set Up Project (create .venv, install, doctor --fix)",
+        "action",
+        vscode.TreeItemCollapsibleState.None
+      );
       setup.command = { command: "mcuflow.setup", title: "Set Up Project" };
       setup.iconPath = new vscode.ThemeIcon("rocket");
-      return [setup];
+      const setPath = new Node("Set mcuflow.path…", "action", vscode.TreeItemCollapsibleState.None);
+      setPath.command = {
+        command: "workbench.action.openSettings",
+        title: "Set mcuflow.path",
+        arguments: ["mcuflow.path"],
+      };
+      setPath.iconPath = new vscode.ThemeIcon("settings-gear");
+      return [head, setup, setPath];
     }
     return [
       await this.boardsGroup(r),

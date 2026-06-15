@@ -20,7 +20,8 @@
   "icon": "media/icon.png",
   "main": "./out/extension.js",
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "workspaceContains:**/board.yml"
   ],
   "contributes": {
     "configuration": {
@@ -78,7 +79,8 @@
       "mcuflow": [
         {
           "id": "mcuflow.view",
-          "name": "MCU Flow"
+          "name": "MCU Flow",
+          "when": "mcuflow.isProject"
         }
       ]
     },

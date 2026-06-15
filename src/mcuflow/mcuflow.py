@@ -688,8 +688,14 @@ def verb_workbench(args):
 
 
 def verb_ports(args):
-    """Delegate to the COM-port viewer (GUI/text)."""
+    """Delegate to the COM-port viewer (GUI/text/JSON).
+
+    The global --json flag makes this print a structured snapshot (what the VS
+    Code extension's Boards tree consumes); it takes precedence over the GUI.
+    """
     pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+    if args.json:
+        return pv.main(["--json"])
     fwd = (["--list"] if args.list else []) + (["--watch"] if args.watch else [])
     return pv.main(fwd)
 

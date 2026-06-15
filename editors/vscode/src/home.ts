@@ -6,7 +6,7 @@
 // --json output, and a "show on startup" toggle like PIO Home.
 
 import * as vscode from "vscode";
-import { resolve, runJson } from "./cli";
+import { resolve, runJson, detectIsProject } from "./cli";
 
 let panel: vscode.WebviewPanel | undefined;
 
@@ -156,6 +156,7 @@ function statusHtml(s: Status): string {
 
 async function render(webview: vscode.Webview, context: vscode.ExtensionContext): Promise<string> {
   const s = await gatherStatus();
+  const isProject = await detectIsProject();
   const iconUri = webview.asWebviewUri(
     vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
   );
@@ -167,8 +168,14 @@ async function render(webview: vscode.Webview, context: vscode.ExtensionContext)
 
   const start = [
     card("mcuflow.newProject", "✚", "New Project", "Folder + name, then configure inside it", true),
-    card("mcuflow.configureProject", "⚙", "Configure Parameters", "Chip, devices, test needs"),
-    card("mcuflow.refineWithAgent", "✦", "Refine with Agent", "Fill pins/devices with the agent"),
+    card("workbench.action.files.openFolder", "📁", "Open Folder", "Open an existing project folder"),
+    // Configure/Refine act on a project - only when one is open.
+    ...(isProject
+      ? [
+          card("mcuflow.configureProject", "⚙", "Configure Parameters", "Chip, devices, test needs"),
+          card("mcuflow.refineWithAgent", "✦", "Refine with Agent", "Fill pins/devices with the agent"),
+        ]
+      : []),
   ].join("");
 
   const build = [
@@ -244,8 +251,7 @@ async function render(webview: vscode.Webview, context: vscode.ExtensionContext)
   <h2>Start</h2>
   <div class="grid">${start}</div>
 
-  <h2>This project</h2>
-  <div class="grid">${build}</div>
+  ${isProject ? `<h2>This project</h2>\n  <div class="grid">${build}</div>` : ""}
 
   <h2>Tools</h2>
   <div class="grid">${tools}</div>

@@ -97,6 +97,19 @@
       }
     ],
     "menus": {
+      "commandPalette": [
+        { "command": "mcuflow.configureProject", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.refineWithAgent", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.scaffold", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.build", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.flash", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.monitor", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.run", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.test", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.hil", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.validate", "when": "mcuflow.isProject" },
+        { "command": "mcuflow.refresh", "when": "false" }
+      ],
       "view/title": [
         { "command": "mcuflow.home", "when": "view == mcuflow.view", "group": "navigation@0" },
         { "command": "mcuflow.newProject", "when": "view == mcuflow.view", "group": "navigation@1" },

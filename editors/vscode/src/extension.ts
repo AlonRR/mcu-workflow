@@ -16,6 +16,10 @@ let selectedPort: string | undefined;
 let portStatus: vscode.StatusBarItem;
 const terminals = new Map<string, vscode.Terminal>();
 
+// Dropped into a new project's .vscode/ by New Project; on the next activation
+// (after the folder opens) it triggers the Configure step, then is deleted.
+const CONFIGURE_MARKER = ".mcuflow-configure";
+
 export function activate(context: vscode.ExtensionContext) {
   selectedPort = context.workspaceState.get<string>("mcuflow.port");
 
@@ -206,9 +210,13 @@ export function activate(context: vscode.ExtensionContext) {
 
   reg("mcuflow.refresh", refreshAll);
 
-  // --- new project (step 0: form -> skeleton board.yml -> refine) -----------
+  // --- new project (folder + name -> open -> configure params -> refine) -----
   reg("mcuflow.newProject", () => runNewProject(context));
+  reg("mcuflow.configureProject", (fileArg?: string) => runConfigureProject(fileArg));
   reg("mcuflow.refineWithAgent", (fileArg?: string) => runRefineWithAgent(fileArg));
+
+  // If a project was just created, run its Configure step now that it's open.
+  void maybeRunConfigure();
 
   // --- onboarding -----------------------------------------------------------
   reg("mcuflow.setup", () => runSetup());
@@ -313,36 +321,11 @@ async function runNewProject(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
 
-  // 2) The form: chip, devices, test needs.
-  const chip = await vscode.window.showQuickPick(CHIPS, {
-    placeHolder: "Target chip (esp32c3 = your Super Mini)",
-  });
-  if (!chip) {
-    return;
-  }
-
-  const devItems: (vscode.QuickPickItem & { key: string })[] = Object.entries(DEVICE_CATALOG).map(
-    ([key, d]) => ({ key, label: d.part, description: d.desc })
-  );
-  const devPick = await vscode.window.showQuickPick(devItems, {
-    placeHolder: "Add devices (optional — refine more with the agent later)",
-    canPickMany: true,
-  });
-  const devices = (devPick ?? []).map((d) => d.key);
-
-  const needItems: vscode.QuickPickItem[] = [
-    { label: "serial", description: "boot string over USB serial", picked: true },
-    { label: "wifi", description: "join WiFi in the HIL test (needs the satellite board)" },
-  ];
-  const needPick = await vscode.window.showQuickPick(needItems, {
-    placeHolder: "What should the HIL test check?",
-    canPickMany: true,
-  });
-  const needs = (needPick ?? []).map((n) => n.label);
-
-  // 3) Generate the skeleton board.yml into <parent>/<name>/.
-  const opts: NewProjectOpts = { project: name, chip, devices, needs };
-  const yaml = buildBoardYaml(opts);
+  // 2) Create a minimal, valid board.yml now. The project PARAMETERS (chip,
+  //    devices, test) are configured AFTER the folder opens - we drop a marker
+  //    that activate() picks up to run Configure. Defaults here are a C3 blinky;
+  //    Configure rewrites them.
+  const yaml = buildBoardYaml({ project: name, chip: "esp32c3", devices: [], needs: ["serial"] });
   const projDir = vscode.Uri.file(path.join(parent, name));
   const boardFile = vscode.Uri.joinPath(projDir, "board.yml");
   try {
@@ -367,39 +350,122 @@ async function runNewProject(context: vscode.ExtensionContext): Promise<void> {
     }
     await vscode.workspace.fs.writeFile(boardFile, Buffer.from(yaml, "utf8"));
 
-    // 4) Make the new folder a usable mcuflow workspace: point it at this CLI
-    //    install and at board.yml, written into its .vscode/settings.json.
+    // Make the new folder a usable mcuflow workspace (point it at this CLI
+    // install + board.yml), and drop the Configure marker.
     const settings: Record<string, unknown> = { "mcuflow.boardFile": "board.yml" };
     const launcher = portableLauncher();
     if (launcher) {
       settings["mcuflow.path"] = launcher;
     }
-    const settingsUri = vscode.Uri.joinPath(projDir, ".vscode", "settings.json");
     await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(projDir, ".vscode"));
     await vscode.workspace.fs.writeFile(
-      settingsUri,
+      vscode.Uri.joinPath(projDir, ".vscode", "settings.json"),
       Buffer.from(JSON.stringify(settings, null, 2) + "\n", "utf8")
+    );
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.joinPath(projDir, ".vscode", CONFIGURE_MARKER),
+      Buffer.from("board.yml\n", "utf8")
     );
   } catch (e: any) {
     vscode.window.showErrorMessage(`Could not create project: ${e.message ?? e}`);
     return;
   }
 
-  // 5) Open the file, then offer the agent-refine / open-folder actions.
-  const doc = await vscode.workspace.openTextDocument(boardFile);
+  // 3) Open the new folder. Reuse the current window so it inherits THIS
+  //    window's profile (the one the extension is installed in) - a forced new
+  //    window on a brand-new folder would land in the Default profile, where the
+  //    extension isn't installed and the Configure marker would never fire. On
+  //    reload, activate() sees the marker and runs Configure.
+  await vscode.commands.executeCommand("vscode.openFolder", projDir, { forceNewWindow: false });
+}
+
+// Configure an existing project's parameters: the chip/devices/test form. Run
+// automatically after New Project opens (via the marker), or on demand.
+async function runConfigureProject(fileArg?: string): Promise<void> {
+  let file = fileArg;
+  if (!file) {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (root) {
+      file = path.join(root, "board.yml");
+    }
+  }
+  if (!file) {
+    vscode.window.showWarningMessage("No board.yml to configure. Use 'MCU Flow: New Project' first.");
+    return;
+  }
+  const project = path.basename(path.dirname(file));
+
+  const chip = await vscode.window.showQuickPick(CHIPS, {
+    placeHolder: `Configure ${project}: target chip (esp32c3 = the C3 Super Mini)`,
+  });
+  if (!chip) {
+    return;
+  }
+  const devItems: (vscode.QuickPickItem & { key: string })[] = Object.entries(DEVICE_CATALOG).map(
+    ([key, d]) => ({ key, label: d.part, description: d.desc })
+  );
+  const devPick = await vscode.window.showQuickPick(devItems, {
+    placeHolder: "Add devices (optional - refine more with the agent later)",
+    canPickMany: true,
+  });
+  const devices = (devPick ?? []).map((d) => d.key);
+  const needItems: vscode.QuickPickItem[] = [
+    { label: "serial", description: "boot string over USB serial", picked: true },
+    { label: "wifi", description: "join WiFi in the HIL test (needs the satellite board)" },
+  ];
+  const needPick = await vscode.window.showQuickPick(needItems, {
+    placeHolder: "What should the HIL test check?",
+    canPickMany: true,
+  });
+  const needs = (needPick ?? []).map((n) => n.label);
+
+  const opts: NewProjectOpts = { project, chip, devices, needs };
+  try {
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.file(file),
+      Buffer.from(buildBoardYaml(opts), "utf8")
+    );
+  } catch (e: any) {
+    vscode.window.showErrorMessage(`Could not write board.yml: ${e.message ?? e}`);
+    return;
+  }
+  const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
   await vscode.window.showTextDocument(doc, { preview: false });
   const choice = await vscode.window.showInformationMessage(
-    `Created ${name}/board.yml (skeleton). Refine it with the agent, then open the folder to build & flash.`,
-    "Refine with Agent",
-    "Open Folder"
+    `Configured ${project}/board.yml. Refine the pins/devices/tests with the agent, then Scaffold → Build → Flash.`,
+    "Refine with Agent"
   );
   if (choice === "Refine with Agent") {
-    runRefineWithAgent(boardFile.fsPath);
-  } else if (choice === "Open Folder") {
-    // Reuse the current window so the new folder inherits THIS window's profile
-    // (the one the extension is installed in). Opening a brand-new folder in a
-    // forced new window would land in the Default profile - no MCU Flow GUI.
-    vscode.commands.executeCommand("vscode.openFolder", projDir, { forceNewWindow: false });
+    runRefineWithAgent(file);
+  }
+}
+
+// On activation, if a freshly-created project left a Configure marker, run the
+// parameters form once and remove the marker.
+async function maybeRunConfigure(): Promise<void> {
+  for (const f of vscode.workspace.workspaceFolders ?? []) {
+    const marker = vscode.Uri.joinPath(f.uri, ".vscode", CONFIGURE_MARKER);
+    try {
+      await vscode.workspace.fs.stat(marker);
+    } catch {
+      continue; // no marker in this folder
+    }
+    let board = "board.yml";
+    try {
+      const t = Buffer.from(await vscode.workspace.fs.readFile(marker)).toString().trim();
+      if (t) {
+        board = t;
+      }
+    } catch {
+      /* default board.yml */
+    }
+    try {
+      await vscode.workspace.fs.delete(marker);
+    } catch {
+      /* best effort */
+    }
+    await runConfigureProject(path.join(f.uri.fsPath, board));
+    return;
   }
 }
 

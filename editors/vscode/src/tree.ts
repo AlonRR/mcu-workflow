@@ -47,6 +47,7 @@ interface DoctorReport {
 
 const ACTIONS: { label: string; command: string; icon: string }[] = [
   { label: "New Project", command: "mcuflow.newProject", icon: "file-add" },
+  { label: "Configure Project Parameters", command: "mcuflow.configureProject", icon: "settings" },
   { label: "Refine board.yml with Agent", command: "mcuflow.refineWithAgent", icon: "sparkle" },
   { label: "Build", command: "mcuflow.build", icon: "tools" },
   { label: "Flash", command: "mcuflow.flash", icon: "zap" },

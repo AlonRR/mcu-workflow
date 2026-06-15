@@ -45,22 +45,30 @@ interface DoctorReport {
   ports: string[];
 }
 
-const ACTIONS: { label: string; command: string; icon: string }[] = [
-  { label: "Open Home", command: "mcuflow.home", icon: "home" },
-  { label: "New Project", command: "mcuflow.newProject", icon: "file-add" },
+type ActionDef = { label: string; command: string; icon: string };
+
+// Actions that operate on a project (need a board.yml). Hidden when no project
+// is detected.
+const PROJECT_ACTIONS: ActionDef[] = [
   { label: "Configure Project Parameters", command: "mcuflow.configureProject", icon: "settings" },
   { label: "Refine board.yml with Agent", command: "mcuflow.refineWithAgent", icon: "sparkle" },
+  { label: "Scaffold Project", command: "mcuflow.scaffold", icon: "new-folder" },
   { label: "Build", command: "mcuflow.build", icon: "tools" },
   { label: "Flash", command: "mcuflow.flash", icon: "zap" },
   { label: "Monitor Serial", command: "mcuflow.monitor", icon: "pulse" },
   { label: "Run (build → flash → HIL)", command: "mcuflow.run", icon: "run-all" },
   { label: "Test (HIL)", command: "mcuflow.test", icon: "beaker" },
   { label: "Validate board.yml", command: "mcuflow.validate", icon: "check" },
-  { label: "Scaffold Project", command: "mcuflow.scaffold", icon: "new-folder" },
+];
+
+// Tools/entry points that work without a project; always shown.
+const TOOL_ACTIONS: ActionDef[] = [
+  { label: "New Project", command: "mcuflow.newProject", icon: "file-add" },
+  { label: "Open Home", command: "mcuflow.home", icon: "home" },
+  { label: "Open Port Viewer", command: "mcuflow.ports", icon: "plug" },
   { label: "Start Workbench", command: "mcuflow.workbench", icon: "server-process" },
   { label: "Bridge over Network", command: "mcuflow.bridge", icon: "broadcast" },
   { label: "Debug Server (JTAG)", command: "mcuflow.debug", icon: "debug-alt" },
-  { label: "Open Port Viewer", command: "mcuflow.ports", icon: "plug" },
 ];
 
 export class McuflowTree implements vscode.TreeDataProvider<Node> {
@@ -93,7 +101,7 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
       newProj.command = { command: "mcuflow.newProject", title: "New Project" };
       newProj.iconPath = new vscode.ThemeIcon("file-add");
       const open = new Node("Open Folder…", "action", vscode.TreeItemCollapsibleState.None);
-      open.command = { command: "vscode.openFolder", title: "Open Folder" };
+      open.command = { command: "workbench.action.files.openFolder", title: "Open Folder" };
       open.iconPath = new vscode.ThemeIcon("folder-opened");
       const setup = new Node(
         "Set Up Project (create .venv, install, doctor --fix)",
@@ -111,11 +119,14 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
       setPath.iconPath = new vscode.ThemeIcon("settings-gear");
       return isProj ? [head, setup, setPath, newProj, open] : [head, newProj, open, setup];
     }
-    return [
-      await this.boardsGroup(r),
-      this.actionsGroup(),
-      await this.doctorGroup(r),
-    ];
+    const isProj = await detectIsProject();
+    const groups: Node[] = [await this.boardsGroup(r)];
+    if (isProj) {
+      groups.push(this.actionsGroup("Project", PROJECT_ACTIONS));
+    }
+    groups.push(this.actionsGroup("Tools", TOOL_ACTIONS));
+    groups.push(await this.doctorGroup(r));
+    return groups;
   }
 
   private async boardsGroup(r: Resolved): Promise<Node> {
@@ -159,14 +170,14 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
     return g;
   }
 
-  private actionsGroup(): Node {
-    const children = ACTIONS.map((a) => {
+  private actionsGroup(label: string, actions: ActionDef[]): Node {
+    const children = actions.map((a) => {
       const n = new Node(a.label, "action", vscode.TreeItemCollapsibleState.None);
       n.command = { command: a.command, title: a.label };
       n.iconPath = new vscode.ThemeIcon(a.icon);
       return n;
     });
-    const g = new Node("Actions", "group", vscode.TreeItemCollapsibleState.Expanded, children);
+    const g = new Node(label, "group", vscode.TreeItemCollapsibleState.Expanded, children);
     g.iconPath = new vscode.ThemeIcon("list-unordered");
     return g;
   }

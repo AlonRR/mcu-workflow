@@ -48,6 +48,14 @@ function exists(p: string): boolean {
   }
 }
 
+function isDir(p: string): boolean {
+  try {
+    return fs.statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 /** The venv python for a given root, if present. */
 function venvPython(root: string): string | undefined {
   const p = isWin
@@ -71,12 +79,30 @@ export function resolve(): Resolved | undefined {
   const explicit = (cfg.get<string>("path") ?? "").trim();
   const env: NodeJS.ProcessEnv = { ...process.env, MCUFLOW_NO_REEXEC: "1" };
 
-  // 1) Explicit setting wins. If it points at a .py, run it with the venv python
-  //    (or system python); otherwise treat it as a launcher executable.
+  // 1) Explicit setting wins. Accept a launcher (.bat/exe), a script (.py), OR a
+  //    directory (e.g. the repo root) - in which case we find the launcher
+  //    inside it: bin/mcuflow[.bat] first (it resolves its own .venv), then
+  //    src/mcuflow/mcuflow.py.
   if (explicit) {
-    const abs = path.isAbsolute(explicit) ? explicit : path.join(root, explicit);
-    if (explicit.endsWith(".py")) {
-      const py = venvPython(root) ?? (isWin ? "python" : "python3");
+    let abs = path.isAbsolute(explicit) ? explicit : path.join(root, explicit);
+    if (isDir(abs)) {
+      const inside =
+        binLauncher(abs) ??
+        (exists(path.join(abs, "src", "mcuflow", "mcuflow.py"))
+          ? path.join(abs, "src", "mcuflow", "mcuflow.py")
+          : undefined);
+      if (inside) {
+        abs = inside;
+      }
+      // If nothing usable is inside, fall through with abs as the directory; the
+      // call will fail with a clear error rather than silently doing nothing.
+    }
+    if (abs.endsWith(".py")) {
+      // Prefer the .venv next to the script (…/<repo>/src/mcuflow/mcuflow.py ->
+      // <repo>/.venv), then the workspace's, then system python.
+      const scriptRepo = path.resolve(path.dirname(abs), "..", "..");
+      const py =
+        venvPython(scriptRepo) ?? venvPython(root) ?? (isWin ? "python" : "python3");
       return {
         cwd: root,
         exec: { file: py, baseArgs: [abs], shell: false },

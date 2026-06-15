@@ -30,7 +30,7 @@
         "mcuflow.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Explicit path to the `mcuflow` launcher (e.g. `bin/mcuflow.bat`, or `mcuflow` on PATH). Leave empty to auto-detect: workspace `.venv` + `src/mcuflow/mcuflow.py`, then `bin/mcuflow`, then PATH."
+          "markdownDescription": "Path to the `mcuflow` launcher (`bin/mcuflow.bat`), the script (`src/mcuflow/mcuflow.py`), **or the repo folder itself** (e.g. `C:\\Users\\you\\mcu-workflow`) — a folder is resolved to `bin/mcuflow.bat` (or the script) inside it. Leave empty to auto-detect: workspace `.venv` + script, then `bin/mcuflow`, then PATH."
         },
         "mcuflow.boardFile": {
           "type": "string",

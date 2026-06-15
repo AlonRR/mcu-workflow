@@ -1,0 +1,111 @@
+{
+  "name": "mcuflow",
+  "displayName": "MCU Flow",
+  "description": "GUI for the mcuflow CLI: build, flash, monitor, and run hardware-in-the-loop tests for ESP32 boards from VS Code.",
+  "version": "0.1.0",
+  "publisher": "mcuflow",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "esp32",
+    "esp-idf",
+    "embedded",
+    "firmware",
+    "microcontroller"
+  ],
+  "icon": "media/icon.png",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "MCU Flow",
+      "properties": {
+        "mcuflow.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Explicit path to the `mcuflow` launcher (e.g. `bin/mcuflow.bat`, or `mcuflow` on PATH). Leave empty to auto-detect: workspace `.venv` + `src/mcuflow/mcuflow.py`, then `bin/mcuflow`, then PATH."
+        },
+        "mcuflow.boardFile": {
+          "type": "string",
+          "default": "examples/board-c3.yml",
+          "description": "board.yml passed to verbs that take one (run, validate, scaffold, build)."
+        },
+        "mcuflow.simulate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Add the global --sim flag to build/flash/test/run (no toolchain or hardware needed)."
+        }
+      }
+    },
+    "commands": [
+      { "command": "mcuflow.newProject", "title": "New Project", "category": "MCU Flow", "icon": "$(file-add)" },
+      { "command": "mcuflow.refineWithAgent", "title": "Refine board.yml with Agent", "category": "MCU Flow", "icon": "$(sparkle)" },
+      { "command": "mcuflow.setup", "title": "Set Up Project", "category": "MCU Flow", "icon": "$(rocket)" },
+      { "command": "mcuflow.build", "title": "Build", "category": "MCU Flow", "icon": "$(tools)" },
+      { "command": "mcuflow.flash", "title": "Flash", "category": "MCU Flow", "icon": "$(zap)" },
+      { "command": "mcuflow.monitor", "title": "Monitor Serial", "category": "MCU Flow", "icon": "$(pulse)" },
+      { "command": "mcuflow.run", "title": "Run (validate → build → flash → HIL)", "category": "MCU Flow", "icon": "$(run-all)" },
+      { "command": "mcuflow.test", "title": "Test (HIL)", "category": "MCU Flow", "icon": "$(beaker)" },
+      { "command": "mcuflow.hil", "title": "HIL (workbench-mediated)", "category": "MCU Flow", "icon": "$(circuit-board)" },
+      { "command": "mcuflow.validate", "title": "Validate board.yml", "category": "MCU Flow", "icon": "$(check)" },
+      { "command": "mcuflow.scaffold", "title": "Scaffold Project", "category": "MCU Flow", "icon": "$(new-folder)" },
+      { "command": "mcuflow.workbench", "title": "Start Workbench", "category": "MCU Flow", "icon": "$(server-process)" },
+      { "command": "mcuflow.bridge", "title": "Bridge Serial over Network", "category": "MCU Flow", "icon": "$(broadcast)" },
+      { "command": "mcuflow.debug", "title": "Start Debug Server (JTAG)", "category": "MCU Flow", "icon": "$(debug-alt)" },
+      { "command": "mcuflow.up", "title": "Open Cage (launcher)", "category": "MCU Flow", "icon": "$(vm)" },
+      { "command": "mcuflow.ports", "title": "Open Port Viewer", "category": "MCU Flow", "icon": "$(plug)" },
+      { "command": "mcuflow.doctor", "title": "Doctor (preflight check)", "category": "MCU Flow", "icon": "$(heart)" },
+      { "command": "mcuflow.doctorFix", "title": "Doctor: Install Prerequisites", "category": "MCU Flow", "icon": "$(cloud-download)" },
+      { "command": "mcuflow.pickPort", "title": "Select Board / Port", "category": "MCU Flow", "icon": "$(list-selection)" },
+      { "command": "mcuflow.refresh", "title": "Refresh", "category": "MCU Flow", "icon": "$(refresh)" }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mcuflow",
+          "title": "MCU Flow",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "mcuflow": [
+        {
+          "id": "mcuflow.view",
+          "name": "MCU Flow"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "mcuflow.view",
+        "contents": "Start here.\n[New Project](command:mcuflow.newProject)\nCreates a board.yml from a few questions, then lets you refine it with the agent.\n\nAlready have an mcuflow project?\n[Set Up Project](command:mcuflow.setup)\nOr point the extension at an existing install in [settings](command:workbench.action.openSettings?%22mcuflow.path%22)."
+      }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "mcuflow.newProject", "when": "view == mcuflow.view", "group": "navigation@0" },
+        { "command": "mcuflow.refresh", "when": "view == mcuflow.view", "group": "navigation@1" },
+        { "command": "mcuflow.pickPort", "when": "view == mcuflow.view", "group": "navigation@2" },
+        { "command": "mcuflow.doctor", "when": "view == mcuflow.view", "group": "navigation@3" }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "tsc --noEmit -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.4.0"
+  }
+}

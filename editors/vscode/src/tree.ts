@@ -8,7 +8,7 @@
 // rather than throwing.
 
 import * as vscode from "vscode";
-import { resolve, runJson, Resolved } from "./cli";
+import { resolve, runJson, detectIsProject, Resolved } from "./cli";
 
 type NodeKind = "group" | "board" | "action" | "info" | "error";
 
@@ -81,9 +81,18 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
     }
     const r = resolve();
     if (!r) {
-      // The view only shows for a detected project, so reaching here means the
-      // board.yml is present but the mcuflow CLI isn't wired up yet.
-      const head = this.info("MCU project detected — mcuflow CLI not found");
+      // The view is always visible, so this is the "home" state: either no
+      // project is open, or a board.yml is present but the CLI isn't wired up.
+      const isProj = await detectIsProject();
+      const head = this.info(
+        isProj ? "MCU project detected — mcuflow CLI not found" : "No project open — start here"
+      );
+      const newProj = new Node("New Project…", "action", vscode.TreeItemCollapsibleState.None);
+      newProj.command = { command: "mcuflow.newProject", title: "New Project" };
+      newProj.iconPath = new vscode.ThemeIcon("file-add");
+      const open = new Node("Open Folder…", "action", vscode.TreeItemCollapsibleState.None);
+      open.command = { command: "vscode.openFolder", title: "Open Folder" };
+      open.iconPath = new vscode.ThemeIcon("folder-opened");
       const setup = new Node(
         "Set Up Project (create .venv, install, doctor --fix)",
         "action",
@@ -98,7 +107,7 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
         arguments: ["mcuflow.path"],
       };
       setPath.iconPath = new vscode.ThemeIcon("settings-gear");
-      return [head, setup, setPath];
+      return isProj ? [head, setup, setPath, newProj, open] : [head, newProj, open, setup];
     }
     return [
       await this.boardsGroup(r),

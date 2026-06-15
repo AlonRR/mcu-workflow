@@ -46,6 +46,7 @@
     },
     "commands": [
       { "command": "mcuflow.newProject", "title": "New Project", "category": "MCU Flow", "icon": "$(file-add)" },
+      { "command": "mcuflow.configureProject", "title": "Configure Project Parameters", "category": "MCU Flow", "icon": "$(settings)" },
       { "command": "mcuflow.refineWithAgent", "title": "Refine board.yml with Agent", "category": "MCU Flow", "icon": "$(sparkle)" },
       { "command": "mcuflow.setup", "title": "Set Up Project", "category": "MCU Flow", "icon": "$(rocket)" },
       { "command": "mcuflow.build", "title": "Build", "category": "MCU Flow", "icon": "$(tools)" },

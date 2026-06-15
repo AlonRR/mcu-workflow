@@ -79,8 +79,7 @@
       "mcuflow": [
         {
           "id": "mcuflow.view",
-          "name": "MCU Flow",
-          "when": "mcuflow.isProject"
+          "name": "MCU Flow"
         }
       ]
     },

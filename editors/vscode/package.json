@@ -41,10 +41,16 @@
           "type": "boolean",
           "default": false,
           "description": "Add the global --sim flag to build/flash/test/run (no toolchain or hardware needed)."
+        },
+        "mcuflow.home.showOnStartup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the MCU Flow Home page when a window starts (like PlatformIO Home)."
         }
       }
     },
     "commands": [
+      { "command": "mcuflow.home", "title": "Open Home", "category": "MCU Flow", "icon": "$(home)" },
       { "command": "mcuflow.newProject", "title": "New Project", "category": "MCU Flow", "icon": "$(file-add)" },
       { "command": "mcuflow.configureProject", "title": "Configure Project Parameters", "category": "MCU Flow", "icon": "$(settings)" },
       { "command": "mcuflow.refineWithAgent", "title": "Refine board.yml with Agent", "category": "MCU Flow", "icon": "$(sparkle)" },
@@ -92,10 +98,11 @@
     ],
     "menus": {
       "view/title": [
-        { "command": "mcuflow.newProject", "when": "view == mcuflow.view", "group": "navigation@0" },
-        { "command": "mcuflow.refresh", "when": "view == mcuflow.view", "group": "navigation@1" },
-        { "command": "mcuflow.pickPort", "when": "view == mcuflow.view", "group": "navigation@2" },
-        { "command": "mcuflow.doctor", "when": "view == mcuflow.view", "group": "navigation@3" }
+        { "command": "mcuflow.home", "when": "view == mcuflow.view", "group": "navigation@0" },
+        { "command": "mcuflow.newProject", "when": "view == mcuflow.view", "group": "navigation@1" },
+        { "command": "mcuflow.refresh", "when": "view == mcuflow.view", "group": "navigation@2" },
+        { "command": "mcuflow.pickPort", "when": "view == mcuflow.view", "group": "navigation@3" },
+        { "command": "mcuflow.doctor", "when": "view == mcuflow.view", "group": "navigation@4" }
       ]
     }
   },

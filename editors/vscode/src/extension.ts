@@ -11,6 +11,7 @@ import * as path from "path";
 import { resolve, runJson, isWorkspaceMcuflow, portableLauncher, detectIsProject, Resolved } from "./cli";
 import { McuflowTree } from "./tree";
 import { buildBoardYaml, CHIPS, DEVICE_CATALOG, NewProjectOpts } from "./newproject";
+import { showHome } from "./home";
 
 let selectedPort: string | undefined;
 let portStatus: vscode.StatusBarItem;
@@ -215,8 +216,20 @@ export function activate(context: vscode.ExtensionContext) {
   reg("mcuflow.configureProject", (fileArg?: string) => runConfigureProject(fileArg));
   reg("mcuflow.refineWithAgent", (fileArg?: string) => runRefineWithAgent(fileArg));
 
-  // If a project was just created, run its Configure step now that it's open.
-  void maybeRunConfigure();
+  // --- home page ------------------------------------------------------------
+  reg("mcuflow.home", () => showHome(context));
+
+  // Startup: if a project was just created, run its Configure step; otherwise
+  // open Home (PlatformIO-style) unless the user turned that off.
+  void (async () => {
+    const didConfigure = await maybeRunConfigure();
+    const showOnStartup = vscode.workspace
+      .getConfiguration("mcuflow")
+      .get<boolean>("home.showOnStartup", true);
+    if (!didConfigure && showOnStartup) {
+      await showHome(context);
+    }
+  })();
 
   // --- onboarding -----------------------------------------------------------
   reg("mcuflow.setup", () => runSetup());
@@ -441,8 +454,8 @@ async function runConfigureProject(fileArg?: string): Promise<void> {
 }
 
 // On activation, if a freshly-created project left a Configure marker, run the
-// parameters form once and remove the marker.
-async function maybeRunConfigure(): Promise<void> {
+// parameters form once and remove the marker. Returns true if it ran.
+async function maybeRunConfigure(): Promise<boolean> {
   for (const f of vscode.workspace.workspaceFolders ?? []) {
     const marker = vscode.Uri.joinPath(f.uri, ".vscode", CONFIGURE_MARKER);
     try {
@@ -465,8 +478,9 @@ async function maybeRunConfigure(): Promise<void> {
       /* best effort */
     }
     await runConfigureProject(path.join(f.uri.fsPath, board));
-    return;
+    return true;
   }
+  return false;
 }
 
 async function runRefineWithAgent(fileArg?: string): Promise<void> {

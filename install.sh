@@ -2,7 +2,7 @@
 # mcu-workflow bootstrap installer (POSIX: bash/zsh, Git-Bash, WSL, macOS, Linux).
 #
 # One-liner:
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/AlonRR/mcu-workflow/main/install.sh | sh
 #
 # It installs uv (a standalone binary - no Python needed), uses uv to get a
 # Python, clones this repo, runs `mcuflow doctor --fix` (which provisions the
@@ -13,7 +13,7 @@
 #   MCUFLOW_REPO=https://github.com/you/fork.git MCUFLOW_HOME=~/tools/mcuflow sh install.sh
 set -eu
 
-REPO="${MCUFLOW_REPO:-https://github.com/OWNER/REPO.git}"
+REPO="${MCUFLOW_REPO:-https://github.com/AlonRR/mcu-workflow.git}"
 DEST="${MCUFLOW_HOME:-$HOME/mcu-workflow}"
 PYVER="3.12"
 

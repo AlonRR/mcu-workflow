@@ -1,7 +1,7 @@
 # mcu-workflow bootstrap installer (Windows PowerShell / pwsh).
 #
 # One-liner (PowerShell, or from cmd via:  powershell -c "..."):
-#   irm https://raw.githubusercontent.com/OWNER/REPO/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/AlonRR/mcu-workflow/main/install.ps1 | iex
 #
 # It installs uv (a standalone binary - no Python needed), uses uv to get a
 # Python, clones this repo, runs `mcuflow doctor --fix` (which provisions the
@@ -12,7 +12,7 @@
 #   $env:MCUFLOW_REPO='https://github.com/you/fork.git'; $env:MCUFLOW_HOME='C:\tools\mcuflow'; irm .../install.ps1 | iex
 $ErrorActionPreference = 'Stop'
 
-$Repo  = if ($env:MCUFLOW_REPO) { $env:MCUFLOW_REPO } else { 'https://github.com/OWNER/REPO.git' }
+$Repo  = if ($env:MCUFLOW_REPO) { $env:MCUFLOW_REPO } else { 'https://github.com/AlonRR/mcu-workflow.git' }
 $Dest  = if ($env:MCUFLOW_HOME) { $env:MCUFLOW_HOME } else { Join-Path $env:USERPROFILE 'mcu-workflow' }
 $PyVer = '3.12'
 function Say($m) { Write-Host "[mcuflow] $m" -ForegroundColor Cyan }

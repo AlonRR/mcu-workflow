@@ -10,26 +10,26 @@ deterministic CLI (`mcuflow`) — and, optionally, an AI agent running in a
 sandboxed "cage". `board.yml` is the single source of truth everything derives
 from.
 
-<!-- After pushing to GitHub, enable the badge:
-[![smoke](https://github.com/<owner>/<repo>/actions/workflows/smoke.yml/badge.svg)](../../actions/workflows/smoke.yml)
--->
+[![smoke](https://github.com/AlonRR/mcu-workflow/actions/workflows/smoke.yml/badge.svg)](https://github.com/AlonRR/mcu-workflow/actions/workflows/smoke.yml)
+[![lint](https://github.com/AlonRR/mcu-workflow/actions/workflows/lint.yml/badge.svg)](https://github.com/AlonRR/mcu-workflow/actions/workflows/lint.yml)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://www.mozilla.org/en-US/MPL/2.0/)
 
 ## Install (one line)
 
 You don't need to install anything first — not even Python. The bootstrap
 installs **uv**, a Python, the repo, and all prerequisites, and puts `mcuflow` on
-your PATH. (Replace `OWNER/REPO` with this repository once it's on GitHub.)
+your PATH.
 
 **Windows** — PowerShell (from `cmd`, wrap it: `powershell -c "irm … | iex"`):
 
 ```powershell
-irm https://raw.githubusercontent.com/OWNER/REPO/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/AlonRR/mcu-workflow/main/install.ps1 | iex
 ```
 
 **macOS / Linux / WSL / Git-Bash**:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/AlonRR/mcu-workflow/main/install.sh | sh
 ```
 
 Then open a new terminal:

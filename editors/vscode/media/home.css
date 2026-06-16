@@ -1,0 +1,137 @@
+/* Styles for the MCU Flow Home panel (see src/home.ts). */
+
+body {
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  padding: 0 24px 32px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 0 6px;
+}
+header img {
+  width: 44px;
+  height: 44px;
+}
+header h1 {
+  font-size: 22px;
+  margin: 0;
+}
+header p {
+  margin: 2px 0 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 13px;
+}
+
+h2 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+  margin: 24px 0 10px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--vscode-widget-border, #8884);
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  font-family: inherit;
+}
+.card:hover {
+  border-color: var(--vscode-focusBorder);
+  background: var(--vscode-list-hoverBackground);
+}
+.card.primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-button-background);
+}
+.card.primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+.codicon-like {
+  font-size: 20px;
+}
+.card-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.card-desc {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.status {
+  margin: 10px 0 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-widget-border, #8884);
+}
+.status.warn {
+  background: var(--vscode-inputValidation-warningBackground, #5a4b1a);
+  border-color: var(--vscode-inputValidation-warningBorder, #b89500);
+}
+.status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+.ok {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+}
+.bad {
+  color: var(--vscode-testing-iconFailed, #f85149);
+}
+.dim {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+.boards {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+
+footer {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}

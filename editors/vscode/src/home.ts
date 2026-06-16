@@ -7,6 +7,7 @@
 
 import * as vscode from "vscode";
 import { resolve, runJson, detectIsProject } from "./cli";
+import { esc, htmlShell, mediaUri } from "./webview";
 
 let panel: vscode.WebviewPanel | undefined;
 
@@ -97,21 +98,6 @@ async function gatherStatus(): Promise<Status> {
   }
 }
 
-function esc(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string
-  );
-}
-
-function nonceStr(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let t = "";
-  for (let i = 0; i < 32; i++) {
-    t += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return t;
-}
-
 function card(id: string, icon: string, title: string, desc: string, primary = false): string {
   return `<button class="card${primary ? " primary" : ""}" data-cmd="${id}">
     <span class="codicon-like">${icon}</span>
@@ -157,14 +143,10 @@ function statusHtml(s: Status): string {
 async function render(webview: vscode.Webview, context: vscode.ExtensionContext): Promise<string> {
   const s = await gatherStatus();
   const isProject = await detectIsProject();
-  const iconUri = webview.asWebviewUri(
-    vscode.Uri.joinPath(context.extensionUri, "media", "icon.png")
-  );
+  const iconUri = mediaUri(webview, context.extensionUri, "icon.png");
   const showOnStartup = vscode.workspace
     .getConfiguration("mcuflow")
     .get<boolean>("home.showOnStartup", true);
-  const nonce = nonceStr();
-  const csp = `default-src 'none'; img-src ${webview.cspSource}; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';`;
 
   const start = [
     card("mcuflow.newProject", "✚", "New Project", "Folder + name, then configure inside it", true),
@@ -194,49 +176,7 @@ async function render(webview: vscode.Webview, context: vscode.ExtensionContext)
     card("mcuflow.debug", "🐞", "Debug", "OpenOCD GDB server (JTAG)"),
   ].join("");
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="${csp}">
-<style nonce="${nonce}">
-  body { font-family: var(--vscode-font-family); color: var(--vscode-foreground);
-    padding: 0 24px 32px; }
-  header { display: flex; align-items: center; gap: 14px; padding: 22px 0 6px; }
-  header img { width: 44px; height: 44px; }
-  header h1 { font-size: 22px; margin: 0; }
-  header p { margin: 2px 0 0; color: var(--vscode-descriptionForeground); font-size: 13px; }
-  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--vscode-descriptionForeground); margin: 24px 0 10px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
-    text-align: left; padding: 14px; border: 1px solid var(--vscode-widget-border, #8884);
-    border-radius: 8px; background: var(--vscode-editorWidget-background);
-    color: var(--vscode-foreground); cursor: pointer; font-family: inherit; }
-  .card:hover { border-color: var(--vscode-focusBorder); background: var(--vscode-list-hoverBackground); }
-  .card.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground);
-    border-color: var(--vscode-button-background); }
-  .card.primary:hover { background: var(--vscode-button-hoverBackground); }
-  .codicon-like { font-size: 20px; }
-  .card-title { font-weight: 600; font-size: 14px; }
-  .card-desc { font-size: 12px; opacity: .8; }
-  .status { margin: 10px 0 4px; padding: 12px 14px; border-radius: 8px;
-    background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-widget-border, #8884); }
-  .status.warn { background: var(--vscode-inputValidation-warningBackground, #5a4b1a);
-    border-color: var(--vscode-inputValidation-warningBorder, #b89500); }
-  .status-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0; }
-  .ok { color: var(--vscode-testing-iconPassed, #3fb950); }
-  .bad { color: var(--vscode-testing-iconFailed, #f85149); }
-  .dim { color: var(--vscode-descriptionForeground); font-size: 12px; }
-  .boards { margin: 4px 0 0; padding-left: 18px; }
-  .link { background: none; border: none; color: var(--vscode-textLink-foreground);
-    cursor: pointer; padding: 0; font: inherit; text-decoration: underline; }
-  footer { margin-top: 26px; display: flex; align-items: center; gap: 8px;
-    color: var(--vscode-descriptionForeground); font-size: 12px; }
-  .toolbar { display:flex; gap:10px; align-items:center; margin-top: 8px; }
-</style>
-</head>
-<body>
+  const body = `
   <header>
     <img src="${iconUri}" alt="MCU Flow">
     <div>
@@ -258,21 +198,12 @@ async function render(webview: vscode.Webview, context: vscode.ExtensionContext)
 
   <footer>
     <label><input type="checkbox" id="startup" ${showOnStartup ? "checked" : ""}> Show this page on startup</label>
-  </footer>
+  </footer>`;
 
-<script nonce="${nonce}">
-  const vscode = acquireVsCodeApi();
-  for (const el of document.querySelectorAll('[data-cmd]')) {
-    el.addEventListener('click', () => {
-      const id = el.getAttribute('data-cmd');
-      const arg = el.getAttribute('data-arg');
-      vscode.postMessage({ type: 'cmd', id, args: arg ? [arg] : [] });
-    });
-  }
-  document.getElementById('refresh').addEventListener('click', () => vscode.postMessage({ type: 'refresh' }));
-  document.getElementById('startup').addEventListener('change', (e) =>
-    vscode.postMessage({ type: 'setStartup', value: e.target.checked }));
-</script>
-</body>
-</html>`;
+  return htmlShell(webview, context.extensionUri, {
+    title: "MCU Flow",
+    style: "home.css",
+    script: "home.js",
+    body,
+  });
 }

@@ -10,7 +10,15 @@ import * as vscode from "vscode";
 import * as path from "path";
 import { resolve, runJson, isWorkspaceMcuflow, detectIsProject, Resolved } from "./cli";
 import { McuflowTree } from "./tree";
-import { buildBoardYaml, CHIPS, DEVICE_CATALOG, NewProjectOpts, CONFIGURE_MARKER } from "./newproject";
+import {
+  buildBoardYaml,
+  CHIPS,
+  PLATFORMS,
+  FRAMEWORKS,
+  DEVICE_CATALOG,
+  NewProjectOpts,
+  CONFIGURE_MARKER,
+} from "./newproject";
 import { showHome } from "./home";
 import { showNewProjectPanel } from "./newprojectpanel";
 
@@ -324,6 +332,12 @@ async function runConfigureProject(fileArg?: string): Promise<void> {
   }
   const project = path.basename(path.dirname(file));
 
+  const platform = await vscode.window.showQuickPick(PLATFORMS, {
+    placeHolder: `Configure ${project}: target platform`,
+  });
+  if (!platform) {
+    return;
+  }
   const chip = await vscode.window.showQuickPick(CHIPS, {
     placeHolder: `Configure ${project}: target chip (esp32c3 = the C3 Super Mini)`,
   });
@@ -348,7 +362,13 @@ async function runConfigureProject(fileArg?: string): Promise<void> {
   });
   const needs = (needPick ?? []).map((n) => n.label);
 
-  const opts: NewProjectOpts = { project, chip, devices, needs };
+  // framework is optional (unused by the CLI today, schema-only). Esc to skip it,
+  // which omits the line rather than leaving a TODO.
+  const framework = await vscode.window.showQuickPick(FRAMEWORKS, {
+    placeHolder: "Build framework (optional — press Esc to skip)",
+  });
+
+  const opts: NewProjectOpts = { project, platform, chip, framework, devices, needs };
   try {
     await vscode.workspace.fs.writeFile(
       vscode.Uri.file(file),

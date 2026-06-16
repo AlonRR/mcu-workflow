@@ -104,7 +104,14 @@ async function createProject(location: string, name: string): Promise<boolean> {
         return false;
       }
     }
-    const yaml = buildBoardYaml({ project: name, chip: "esp32c3", devices: [], needs: [] });
+    const yaml = buildBoardYaml({
+      project: name,
+      platform: "",
+      chip: "",
+      framework: "",
+      devices: [],
+      needs: [],
+    });
     await vscode.workspace.fs.writeFile(boardFile, Buffer.from(yaml, "utf8"));
 
     const settings: Record<string, unknown> = { "mcuflow.boardFile": "board.yml" };

@@ -35,3 +35,8 @@ uv run --with ruff ruff format .          # format — CI enforces this
 Runtime code lives in `src/`, human docs in `docs/`, AI-agent material in
 `agents/`, and Stage-0 hardware helpers in `hardware/`. See the layout map in the
 README.
+
+## License
+
+By contributing, you agree that your contributions are licensed under the
+project's [Mozilla Public License 2.0](LICENSE).

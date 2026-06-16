@@ -93,11 +93,14 @@ examples/       sample board.yml files
 hardware/       Stage-0 helpers: BOM/wiring (design/) and the FDM case (enclosure/)
 deploy/         the cage's egress-allowlist proxy + compose
 ci-templates/   GitHub Actions you copy into a generated project
+editors/        editor integrations — the VS Code extension (editors/vscode/)
 bin/            mcuflow / mcuflow.bat entry points
-tests/          test_smoke.py — hardware-free regression (run `pytest`)
+tools/          standalone dev/diagnostic helpers (e.g. satcheck.py)
+tests/          hardware-free regression suite (run `pytest`)
 docs/           human documentation  (see docs/README.md)
 agents/         material for AI coding agents  (see agents/README.md)
 CLAUDE.md       brief auto-loaded by Claude Code (kept at root by convention)
+LICENSE         Mozilla Public License 2.0
 pyproject.toml  package metadata + dependencies (the single source of truth)
 cage.yaml       the launcher's cage configuration
 ```
@@ -125,7 +128,17 @@ rationale behind each decision.
 
 Parts of this project were developed with the assistance of an AI coding agent.
 
+## Acknowledgements
+
+The VS Code extension in [`editors/vscode/`](editors/vscode/) is inspired by
+[PlatformIO IDE](https://github.com/platformio/platformio-vscode-ide) — its Home
+page, activity-bar view, and the idea of recognizing a project by a contract
+file (`platformio.ini` there, `board.yml` here). MCU Flow is an independent
+project: it is **not affiliated with or endorsed by PlatformIO** and contains no
+PlatformIO code.
+
 ## License
 
-Not yet licensed. Until a `LICENSE` is added, all rights are reserved — open an
-issue if you'd like to use it.
+[Mozilla Public License 2.0](LICENSE) (MPL-2.0). You may use mcu-workflow in
+open- or closed-source projects; if you modify mcu-workflow's own files and
+distribute them, those changes must remain under MPL-2.0.

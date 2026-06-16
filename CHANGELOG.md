@@ -43,8 +43,19 @@ All notable changes are documented here. The format follows
 - `mcuflow debug`: start an OpenOCD GDB server (`:3333`) over the chip's built-in
   USB-JTAG for step-debugging (needs OpenOCD; Windows needs a Zadig WinUSB
   driver).
+- VS Code extension (`editors/vscode/`): a GUI for the `mcuflow` CLI — Home page,
+  New Project (folder + name, then a Configure step for platform/chip/devices/
+  tests), `board.yml` project recognition, activity-bar view (Boards / Project /
+  Tools / Doctor), status bar, and command palette. Inspired by PlatformIO IDE;
+  an independent implementation that contains no PlatformIO code.
+- `tools/satcheck.py`: one-shot satellite check (ping / caps / siggen / ble, or
+  `--sim` with no hardware) that starts the workbench in-process and exits.
+- `LICENSE`: the project is now released under the Mozilla Public License 2.0,
+  declared in `pyproject.toml` and the VS Code extension manifest.
 
 ### Changed
+- CI now uses **uv** instead of pip: both workflows install via
+  `astral-sh/setup-uv` + `uv pip install`, and lint runs `uvx ruff`.
 - Reorganized the repository into `src/`, `docs/`, `agents/`, `hardware/`,
   `deploy/`, with examples at the top level.
 - The CLI no longer assumes ESP at the command layer: `build`/`flash`/`monitor`/

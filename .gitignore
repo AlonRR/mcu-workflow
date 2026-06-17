@@ -33,3 +33,9 @@ Thumbs.db
 
 # editor settings (machine-local)
 .vscode/
+
+# Claude Code: share project skills (+ shared settings), ignore local/transient state
+.claude/*
+!.claude/skills/
+!.claude/settings.json
+.claude/settings.local.json

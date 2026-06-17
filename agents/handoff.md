@@ -6,10 +6,11 @@ folder**. It captures the context that otherwise lives in the app's memory
 
 ## Moving to a new PC
 
-**Copy this one folder** to the new desktop:
+**Copy this one folder** to the new desktop (the project folder, currently
+`mcu-workflow`):
 
 ```
-C:\Users\alonr\Claude\Projects\micro-controller workflow
+mcu-workflow/
 ```
 
 Put it anywhere you like on the desktop (e.g. a Claude project folder, or just
@@ -46,10 +47,17 @@ bottom of this file for the details. In short: `mcuflow run board-c3.yml` is
 **5/5 stages green** on real silicon (validate, scaffold, cage build, host
 esptool flash, and an on-silicon HIL where the DUT joins the real satellite AP).
 
-Still deeper than this bring-up exercised: the heavier workbench layers (RFC2217
-serial proxy, auto-GDB, full BLE/MQTT/OTA actions), and the fully-locked-down
-cage (egress allowlist proxy + docker network) which is wired but left open for
-a first bench run.
+Since then (session 4, below) the workbench grew its action instruments
+(WiFi/GPIO/siggen/UDP-log/OTA + an embedded MQTT broker), and the RFC2217 serial
+proxy and OpenOCD/GDB server shipped as the standalone `mcuflow bridge` and
+`mcuflow debug` verbs; `mcuflow ports` was added as a port-mapping viewer; and a
+VS Code extension (`editors/vscode/`) now wraps the CLI as a GUI. The project is
+released under MPL-2.0 and CI runs on uv.
+
+Still deeper than the bring-up exercised: on-silicon BLE scan resets the C3
+(experimental, pending on-device debugging), and the fully-locked-down cage
+(egress allowlist proxy + docker network) is wired but was left open for a first
+bench run.
 
 ## Resolved design decisions (mirror of project memory)
 
@@ -78,11 +86,19 @@ a first bench run.
 
 ## Suggested next steps
 
-1. **Prove it on hardware**: `python src/launcher/up.py doctor`, flash the satellite, walk a real
-   `board.yml` through validate → scaffold → build → flash.
-2. **Deepen the workbench** (#9) into the full instrument (RFC2217 proxy, auto-GDB, WiFi/BLE/OTA).
-3. **Package** the folders into one installable `mcuflow` so `mcuflow up/validate/scaffold` are
-   real commands with the sibling tools vendored.
+The original three are done: hardware was proven (session 3), the workbench was
+deepened with its action instruments + bridge/debug verbs (session 4), and the
+project is now an installable `pyproject.toml` package with `mcuflow` on PATH.
+What's left:
+
+1. **Fix on-silicon BLE.** `/api/ble/scan` works in the simulator but the NimBLE
+   observer resets the C3 on real hardware — needs on-device `idf.py monitor`
+   debugging (the panic isn't capturable over the USB-JTAG console headlessly).
+2. **Close the cage.** The egress-allowlist proxy + internal docker network in
+   `deploy/cage/` are wired but were left open for the first bench run; turn them
+   on and verify a denied host actually fails.
+3. **A second platform adapter** (STM32 / RP2040 / Zephyr) to prove the
+   target-agnostic core beyond ESP-IDF.
 
 ## Recurring sandbox note
 
@@ -169,3 +185,29 @@ self-installs and runs end to end on real silicon; the codebase is under git
   C3 native USB re-enumerates and COM⇄busid can swap across reboots).
 - **Boards as last seen:** satellite on COM6 (MAC e0:72:a1:70:d4:00, AP BSSID
   ...d4:01), DUT on COM9. Keep them ~0.5 m apart.
+
+## Update — 2026-06-16 (session 4): instruments, tooling, GUI, release prep
+
+Built on the green hardware run with capability depth, a GUI, and public-release
+finalizing:
+
+- **Workbench action instruments.** Beyond the read-only core, the workbench now
+  serves WiFi (`/api/wifi/*`), GPIO (`/api/gpio/*`), a PWM signal generator
+  (`/api/siggen/*`), UDP logging (`/api/udplog`), OTA firmware serving
+  (`/api/firmware*` + `/firmware/<name>`), and an embedded stdlib MQTT broker
+  (`/api/mqtt/*`, TCP 1883). BLE scan (`/api/ble/scan`, NimBLE observer) is wired
+  and works in the simulator but **resets the C3 on real hardware** (experimental).
+- **New standalone verbs.** `mcuflow ports` (a side-effect-free viewer of which
+  board is on which COM port, by USB serial number), `mcuflow bridge` (share a
+  serial port over RFC2217 so a board on one host is flashable from another), and
+  `mcuflow debug` (OpenOCD GDB server on `:3333` over the C3's built-in USB-JTAG).
+- **VS Code extension** (`editors/vscode/`): a PlatformIO-style GUI that wraps the
+  `mcuflow` CLI — Home page, New Project (writes a TODO-placeholder `board.yml`,
+  resolved by a Configure step), `board.yml` project recognition, an activity-bar
+  view (Boards / Project / Tools / Doctor), status bar, and command palette. It
+  reimplements nothing; the CLI stays the single source of truth.
+- **Release finalizing.** Licensed under **MPL-2.0** (`LICENSE`, declared in
+  `pyproject.toml` and the extension manifest); CI converted from pip to **uv**;
+  personal email scrubbed from git history (commits use the GitHub noreply
+  address); `tools/satcheck.py` added; docs corrected with a PlatformIO
+  inspiration disclaimer.

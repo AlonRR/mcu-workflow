@@ -16,7 +16,8 @@ real version.
 ## Already built and verified (no hardware)
 
 - `mcuflow` CLI: verbs `validate scaffold build flash monitor test hil run up
-  workbench env doctor`; `--sim` runs build/flash/test with no toolchain.
+  workbench ports bridge debug doctor env`; `--sim` runs build/flash/test with no
+  toolchain.
 - C3 DUT config: `examples/board-c3.yml` (LED=GPIO8 active-low,
   BOOT=GPIO9, native USB, 4MB). Scaffolds chip-correct (`set-target esp32c3`).
 - DUT firmware: the scaffold now generates **real WiFi-join code** when

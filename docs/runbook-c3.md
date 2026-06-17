@@ -54,13 +54,12 @@ needs a one-time elevated prompt the first time you attach a board.
 Toolchains:
 - **DUT** builds with **ESP-IDF v6.0** — provided by the cage image
   `espressif/idf:release-v6.0`, so you don't install it on the host.
-- **Satellite** firmware (`src/satellite/firmware/satellite.ino`) is an **Arduino**
-  sketch. The cage is an ESP-IDF image and has no Arduino toolchain, so the
-  satellite is the one piece the cage can't build as-is. Two options:
-  1. Flash the satellite **from the host** with `arduino-cli` (ESP32 core +
-     ArduinoJson) once, and leave it running. Simplest today.
-  2. Have me **rewrite the satellite as an ESP-IDF project** so the same cage
-     builds both boards (cleaner; pending your go-ahead).
+- **Satellite** firmware has two editions. The **ESP-IDF edition**
+  (`src/satellite/firmware-idf/`) is preferred: the same cage toolchain builds
+  both boards, so there's nothing extra to install. The **Arduino edition**
+  (`src/satellite/firmware/satellite.ino`) remains as a no-IDF fallback — the
+  cage has no Arduino toolchain, so that one must be flashed from the host with
+  `arduino-cli` (ESP32 core + ArduinoJson).
 
 ---
 
@@ -105,19 +104,27 @@ expect the COM number to briefly drop/return around a flash.
 
 ## 4. Flash the satellite (once)
 
-Option 1 (host, Arduino):
+Preferred (ESP-IDF — same toolchain as the DUT, builds in the cage):
+
+```
+cd src/satellite/firmware-idf
+idf.py set-target esp32c3
+idf.py -p COM5 flash                                        # fw reports "sat-idf-0.1"
+```
+
+Fallback (host, Arduino):
 
 ```
 arduino-cli compile --fqbn esp32:esp32:esp32c3 src/satellite/firmware/satellite.ino
-arduino-cli upload  --fqbn esp32:esp32:esp32c3 -p COM5 src/satellite/firmware/satellite.ino
+arduino-cli upload  --fqbn esp32:esp32:esp32c3 -p COM5 src/satellite/firmware/satellite.ino  # fw reports "sat-0.1"
 ```
 
-Sanity-check it speaks the protocol:
+Sanity-check it speaks the protocol (the `fw` string tells you which edition is on the board):
 
 ```
 mcuflow workbench --satellite COM5
 # in another shell:
-curl -X POST http://127.0.0.1:6283/api/satellite/ping      # -> {"ok":true,"fw":"sat-0.1"}
+curl -X POST http://127.0.0.1:6283/api/satellite/ping      # -> {"ok":true,"fw":"sat-idf-0.1"}
 curl -X POST http://127.0.0.1:6283/api/wifi/scan
 ```
 
@@ -150,17 +157,17 @@ mcuflow run examples/board-c3.yml \
         --workbench http://127.0.0.1:6283
 ```
 
-What is real vs. still to come at this step:
-- **Real now:** validate, scaffold, `idf.py build`, `esptool` flash, the DUT's
-  `test_boots` (reads the chip's actual serial for `app_main started`), and the
-  satellite's radios/GPIO driven for real through the workbench API.
-- **Needs firmware:** the DUT's WiFi-join code is a TODO stub in the generated
-  `main/main.c`. Until you fill it in, the real DUT won't actually join the AP —
-  the `--sim` run models the *intended* behaviour so the harness is proven, but
-  the on-silicon join is your firmware to write.
-- **Next integration layer:** the `hil` verb currently asserts the join against a
-  modelled DUT; wiring it to read the *real* DUT serial (so the join assertion is
-  fully automated on hardware) is the remaining piece to make Section 6 push-button.
+All five stages are green on real silicon (proven on the two C3s — see
+`agents/handoff.md`, session 3):
+- **Real now:** validate, scaffold, `idf.py build` (in the cage), `esptool` flash
+  from the host, and an on-silicon HIL — for `wifi` boards the scaffold emits real
+  WiFi-join firmware (the DUT joins the satellite AP and prints
+  `wifi: connected to '<ssid>', got ip ...`), and the `hil` verb reads the **real**
+  DUT serial to confirm both `app_main started` and that join line while the real
+  satellite AP is up.
+- **RF-proximity gotcha:** two PCB-antenna C3s sitting inches apart desense each
+  other and the join loops at 802.11 auth (`reason=2`). Keep them ~0.5 m apart. If
+  a join ever flaps, check board spacing first.
 
 ---
 

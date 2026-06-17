@@ -14,8 +14,8 @@ under [`../agents/`](../agents/).)
 
 ## Per-module references
 
-Each module under [`../src/`](../src/) (and the Stage-0 helpers under
-[`../hardware/`](../hardware/)) ships its own `README.md`:
+Most modules under [`../src/`](../src/) (and the Stage-0 helpers under
+[`../hardware/`](../hardware/)) ship their own `README.md`:
 
 | Module | Path |
 |---|---|
@@ -25,8 +25,15 @@ Each module under [`../src/`](../src/) (and the Stage-0 helpers under
 | cage launcher | [`../src/launcher/`](../src/launcher/) |
 | networked workbench | [`../src/workbench/`](../src/workbench/) |
 | ESP32 satellite | [`../src/satellite/`](../src/satellite/) |
-| simulators + HIL | [`../src/sim/`](../src/sim/) |
+| port viewer (`mcuflow ports`) | [`../src/portviewer/`](../src/portviewer/) |
+| serial bridge (`mcuflow bridge`, RFC2217) | [`../src/serialbridge/`](../src/serialbridge/) |
+| JTAG debugger (`mcuflow debug`) | [`../src/debugger/`](../src/debugger/) |
 | platform adapters | [`../src/adapters/`](../src/adapters/) |
 | Stage-0 design / enclosure | [`../hardware/`](../hardware/) |
 | cage egress proxy | [`../deploy/cage/`](../deploy/cage/) |
 | CI templates (copy into your project) | [`../ci-templates/`](../ci-templates/) |
+| VS Code extension | [`../editors/vscode/`](../editors/vscode/) |
+| standalone dev/diagnostic tools | [`../tools/`](../tools/) |
+
+(The simulators + HIL runner live in [`../src/sim/`](../src/sim/); they're
+documented inline and in the architecture doc rather than a module README.)

@@ -258,6 +258,16 @@ The project is deliberately many small, independently-shippable pieces rather th
 | 11 | **CI pipeline templates** | GitHub Actions self-hosted; runner-label routing by chip/instrument | #2; runner setup | 2 | yes |
 | 12 | **Platform adapters** | STM32 / RP2040 / Zephyr behind the same core interface | #2 core | 6 | yes |
 
+*Built since this plan was drafted (same contracts, no new design):* a few small
+standalone verbs that fell out of real bring-up — `mcuflow ports` (a
+side-effect-free viewer of which board is on which COM port, by USB serial),
+`mcuflow bridge` (RFC2217 serial-over-network, deliverable #9's serial-proxy
+layer), and `mcuflow debug` (the OpenOCD/GDB server, the JTAG layer) — plus a
+**VS Code extension** (`editors/vscode/`) that surfaces the CLI verbs as a
+PlatformIO-style GUI (Home page, project recognition by `board.yml`, activity-bar
+view). The extension reimplements nothing: the CLI stays the single source of
+truth, exactly as the "who orchestrates" split requires.
+
 ## 11. Extensibility beyond ESP32
 
 The target-agnostic core is the hinge. `board.yml` keeps a `platform:` field; the CLI dispatches to a platform adapter implementing the same `Toolchain`/`Flasher`/`TestRunner` interface. ESP32's adapter wraps `idf.py`; a future STM32 adapter wraps CMake + `arm-none-eabi-gcc` + OpenOCD; an RP2040 adapter wraps the Pico SDK + `picotool`; a Zephyr adapter wraps `west` + Twister (whose HIL model closely mirrors pytest-embedded's marker/runner approach). pytest-embedded itself is not ESP-exclusive, which keeps the test layer portable. The skill and template are parameterized by platform, so most of the per-platform cost is the adapter plus a template variant.

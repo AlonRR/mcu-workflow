@@ -14,7 +14,7 @@ the same line protocol can later run over TCP for a remotely-placed satellite.
 
 | `cmd` | Args | Response |
 |-------|------|----------|
-| `ping` | — | `{"ok":true,"fw":"sat-0.1"}` |
+| `ping` | — | `{"ok":true,"fw":"sat-idf-0.1"}` (Arduino edition reports `"sat-0.1"`) |
 | `caps` | — | `{"ok":true,"capabilities":["wifi","ble","gpio"]}` |
 | `wifi.ap_start` | `ssid`, `password?`, `channel?` | `{"ok":true,"ip":"192.168.4.1"}` |
 | `wifi.ap_stop` | — | `{"ok":true}` |

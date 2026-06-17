@@ -17,8 +17,9 @@ mcuflow test pytest_<project>.py --target <chip>
 
 1. Check the instruments a suite needs. Read `board.yml` `test.needs` (e.g.
    `[serial, wifi]`) against the workbench `GET /api/capabilities` (or the runner
-   labels). If a needed instrument is absent (e.g. `ble`, which this workbench
-   doesn't provide yet), say so and skip those tests rather than failing hard.
+   labels). If a needed instrument is absent — or only experimental, like `ble`
+   (wired and works in the simulator, but the on-silicon scan currently resets
+   the C3) — say so and skip those tests rather than failing hard.
 2. Run the suite with `mcuflow test`. pytest-embedded flashes the board and runs
    the on-target tests; the `test.boot_string` check confirms the firmware came
    up. For the full validate -> ... -> hil pipeline use `mcuflow run` (which also

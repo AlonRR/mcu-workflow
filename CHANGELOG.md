@@ -88,6 +88,9 @@ All notable changes are documented here. The format follows
 - `run` surfaces a real port-detection failure as a failed stage instead of
   masking it as "no board" and flashing the toolchain default; `doctor` and
   `mcuflow ports` now report the same connected-board list.
+- `tools/satcheck.py` resolved the workbench relative to its own `tools/`
+  directory after the move to a standard layout, so every invocation crashed at
+  import; it now resolves the repo root correctly.
 
 ## [0.2.0]
 

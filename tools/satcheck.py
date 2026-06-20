@@ -4,10 +4,10 @@ print the result, and exit. No server is left running - nothing to Ctrl+C.
 
 Run with the project's venv python so pyserial is available:
 
-  .venv\\Scripts\\python.exe satcheck.py --satellite COM9 ping
-  .venv\\Scripts\\python.exe satcheck.py --satellite COM9 caps
-  .venv\\Scripts\\python.exe satcheck.py --satellite COM9 siggen
-  .venv\\Scripts\\python.exe satcheck.py --satellite COM9 ble     # the scan under test
+  .venv\\Scripts\\python.exe tools\\satcheck.py --satellite COM9 ping
+  .venv\\Scripts\\python.exe tools\\satcheck.py --satellite COM9 caps
+  .venv\\Scripts\\python.exe tools\\satcheck.py --satellite COM9 siggen
+  .venv\\Scripts\\python.exe tools\\satcheck.py --satellite COM9 ble     # the scan under test
 
 Use --satellite sim to try it with no hardware.
 """
@@ -23,7 +23,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent  # repo root (this file lives in tools/)
 _spec = importlib.util.spec_from_file_location("wb", ROOT / "src" / "workbench" / "workbench.py")
 wb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(wb)

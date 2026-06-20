@@ -12,7 +12,7 @@ import { resolve, runJson, isWorkspaceMcuflow, detectIsProject, Resolved } from 
 import { McuflowTree } from "./tree";
 import {
   buildBoardYaml,
-  CHIPS,
+  CHIPS_BY_PLATFORM,
   PLATFORMS,
   FRAMEWORKS,
   DEVICE_CATALOG,
@@ -118,8 +118,10 @@ export function activate(context: vscode.ExtensionContext) {
   reg("mcuflow.run", () =>
     term("run", [...simFlag(), "run", board(), ...portArgs()])
   );
-  reg("mcuflow.test", () => term("test", [...simFlag(), "test"]));
-  reg("mcuflow.hil", () => term("hil", [...simFlag(), "hil"]));
+  // test/hil take a required positional: `test` a pyfile (a board.yml under --sim),
+  // `hil` the board.yml. Pass board() so the CLI doesn't error with a usage message.
+  reg("mcuflow.test", () => term("test", [...simFlag(), "test", board()]));
+  reg("mcuflow.hil", () => term("hil", [...simFlag(), "hil", board()]));
   reg("mcuflow.validate", () => term("validate", ["validate", board()]));
   reg("mcuflow.scaffold", () => term("scaffold", ["scaffold", board()]));
   reg("mcuflow.workbench", () => term("workbench", ["workbench"]));
@@ -147,8 +149,14 @@ export function activate(context: vscode.ExtensionContext) {
     if (!r) {
       return;
     }
+    // Default to the project's actual chip (from board.yml) instead of assuming ESP.
+    const detected = await readBoardChip();
     const chip =
-      (await vscode.window.showInputBox({ prompt: "Target chip", value: "esp32c3" })) ||
+      (await vscode.window.showInputBox({
+        prompt: "Target chip",
+        value: detected ?? "esp32c3",
+      })) ||
+      detected ||
       "esp32c3";
     runInTerminal("debug", r, ["debug", "--chip", chip]);
   });
@@ -270,7 +278,15 @@ function runInTerminal(name: string, r: Resolved, args: string[]): void {
 }
 
 function shellQuote(s: string): string {
-  return /[\s"]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
+  if (!/[\s"]/.test(s)) {
+    return s;
+  }
+  // The integrated terminal defaults to PowerShell on Windows, where a literal
+  // double-quote inside a double-quoted string is escaped by doubling it (`""`),
+  // not with a backslash. POSIX shells use the backslash form.
+  return process.platform === "win32"
+    ? `"${s.replace(/"/g, '""')}"`
+    : `"${s.replace(/"/g, '\\"')}"`;
 }
 
 // --- port picker -------------------------------------------------------------
@@ -288,14 +304,15 @@ async function pickPortQuick(r: Resolved): Promise<string | undefined> {
     description: [p.role, p.serial].filter(Boolean).join(" · "),
     detail: p.description,
   }));
-  items.push({ label: "$(clear-all) Clear selection", description: "use auto-detect" });
+  const CLEAR = "$(clear-all) Clear selection";
+  items.push({ label: CLEAR, description: "use auto-detect" });
   const pick = await vscode.window.showQuickPick(items, {
     placeHolder: "Select the board / serial port (used for flash, monitor, run)",
   });
   if (!pick) {
     return undefined;
   }
-  if (pick.label.includes("Clear selection")) {
+  if (pick.label === CLEAR) {
     return "";
   }
   return pick.label;
@@ -315,6 +332,53 @@ function updatePortStatus(): void {
 
 // New Project opens an in-editor panel (location + name); creation + the
 // post-open Configure step live in newprojectpanel.ts / runConfigureProject.
+
+// Pick a chip for the chosen platform: a curated QuickPick where we have one,
+// otherwise free text. Returns undefined if the user cancels.
+async function pickChip(platform: string, project: string): Promise<string | undefined> {
+  const choices = CHIPS_BY_PLATFORM[platform];
+  if (choices?.length) {
+    const OTHER = "$(edit) Other…";
+    const pick = await vscode.window.showQuickPick([...choices, OTHER], {
+      placeHolder: `Configure ${project}: target chip`,
+    });
+    if (pick === undefined) {
+      return undefined;
+    }
+    if (pick !== OTHER) {
+      return pick;
+    }
+  }
+  return vscode.window.showInputBox({
+    prompt: `Configure ${project}: target chip for ${platform}`,
+    placeHolder: platform === "stm32" ? "e.g. stm32f411" : platform === "zephyr" ? "e.g. nrf52840" : "chip",
+    validateInput: (v) => (v.trim() ? null : "Enter a chip."),
+  });
+}
+
+// Read meta.chip from the project's board.yml, if present, so commands default
+// to the project's actual target instead of a hardcoded assumption.
+async function readBoardChip(): Promise<string | undefined> {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) {
+    return undefined;
+  }
+  const cfgBoard = vscode.workspace.getConfiguration("mcuflow").get<string>("boardFile");
+  const candidates = [cfgBoard, "board.yml", "examples/board-c3.yml"].filter(Boolean) as string[];
+  for (const c of candidates) {
+    const p = path.isAbsolute(c) ? c : path.join(root, c);
+    try {
+      const txt = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(p))).toString();
+      const m = txt.match(/^\s*chip:\s*([^\s#]+)/m);
+      if (m && m[1] !== "TODO") {
+        return m[1];
+      }
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return undefined;
+}
 
 // Configure an existing project's parameters: the chip/devices/test form. Run
 // automatically after New Project opens (via the marker), or on demand.
@@ -338,9 +402,9 @@ async function runConfigureProject(fileArg?: string): Promise<void> {
   if (!platform) {
     return;
   }
-  const chip = await vscode.window.showQuickPick(CHIPS, {
-    placeHolder: `Configure ${project}: target chip (esp32c3 = the C3 Super Mini)`,
-  });
+  // Offer chips that belong to the chosen platform; free-text for the rest so we
+  // never present (e.g.) esp32c3 as a choice for an stm32 project.
+  const chip = await pickChip(platform, project);
   if (!chip) {
     return;
   }
@@ -424,7 +488,7 @@ async function runRefineWithAgent(fileArg?: string): Promise<void> {
   let file = fileArg;
   if (!file) {
     const active = vscode.window.activeTextEditor?.document;
-    if (active && active.fileName.endsWith(".yml")) {
+    if (active && path.basename(active.fileName) === "board.yml") {
       file = active.fileName;
     }
   }

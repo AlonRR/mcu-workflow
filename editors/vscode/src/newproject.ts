@@ -16,7 +16,10 @@ export interface DeviceSpec {
   part: string;
   bus: string;
   address?: string; // YAML hex literal, parsed as int (e.g. "0x76")
-  driver?: string;
+  // Driver dependency keyed by platform — the reference is framework-specific
+  // (e.g. an ESP-IDF component path). Omitted for platforms we can't name a
+  // driver for; the agent fills it in during Refine.
+  drivers?: Record<string, string>;
   desc: string; // for the QuickPick
 }
 
@@ -27,12 +30,18 @@ export const DEVICE_CATALOG: Record<string, DeviceSpec> = {
     part: "BME280",
     bus: "i2c0",
     address: "0x76",
-    driver: "espressif/bme280",
+    drivers: { esp32: "espressif/bme280" },
     desc: "BME280 — temperature / humidity (I²C)",
   },
 };
 
-export const CHIPS = ["esp32c3", "esp32", "esp32s3", "esp32c6"];
+// Chip choices per platform. Only ESP is enumerated with confidence; other
+// platforms fall back to free text in Configure (the user/agent names the exact
+// part) rather than offering chips that contradict the chosen platform.
+export const CHIPS_BY_PLATFORM: Record<string, string[]> = {
+  esp32: ["esp32c3", "esp32", "esp32s3", "esp32c6"],
+  rp2040: ["rp2040"],
+};
 // Schema enums (board.schema.json). Used by Configure to resolve the skeleton's
 // TODO placeholders.
 export const PLATFORMS = ["esp32", "stm32", "rp2040", "zephyr"];
@@ -125,8 +134,9 @@ export function buildBoardYaml(opts: NewProjectOpts): string {
       if (d.address) {
         parts.push(`address: ${d.address}`);
       }
-      if (d.driver) {
-        parts.push(`driver: ${d.driver}`);
+      const driver = opts.platform ? d.drivers?.[opts.platform] : undefined;
+      if (driver) {
+        parts.push(`driver: ${driver}`);
       }
       L.push(`  ${d.name}: { ${parts.join(", ")} }`);
     }

@@ -94,6 +94,17 @@ All notable changes are documented here. The format follows
 - CI smoke job runs `uv run --extra dev pytest` instead of a bare `pytest`,
   which need not resolve under the uv-managed interpreter (matches the lint
   workflow's uv usage).
+- VS Code extension: the Test and HIL actions invoked the CLI without the
+  required positional argument (an argparse usage error every time); they now
+  pass the board file.
+- VS Code extension: Configure offered ESP-only chips for every platform (e.g.
+  `esp32c3` for an `stm32` project); chips are now platform-aware, with free text
+  for platforms without a curated list, and device drivers (e.g.
+  `espressif/bme280`) are emitted per platform instead of for all.
+- VS Code extension: "Refine with Agent" no longer targets an unrelated `.yml`
+  that happens to be focused; Debug defaults the chip from `board.yml` instead of
+  hardcoding `esp32c3`; and terminal arguments are quoted correctly for
+  PowerShell (the Windows default integrated terminal).
 
 ## [0.2.0]
 

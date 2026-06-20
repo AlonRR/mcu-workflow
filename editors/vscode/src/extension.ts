@@ -8,7 +8,14 @@
 
 import * as vscode from "vscode";
 import * as path from "path";
-import { resolve, runJson, isWorkspaceMcuflow, detectIsProject, Resolved } from "./cli";
+import {
+  resolve,
+  runJson,
+  isWorkspaceMcuflow,
+  detectIsProject,
+  invalidateReadCache,
+  Resolved,
+} from "./cli";
 import { McuflowTree } from "./tree";
 import {
   buildBoardYaml,
@@ -67,6 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   const refreshAll = () => {
+    invalidateReadCache(); // force fresh doctor/ports reads on an explicit refresh
     void updateProjectContext();
     tree.refresh();
     updatePortStatus();

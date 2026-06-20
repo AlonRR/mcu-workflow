@@ -6,7 +6,7 @@
 // --json output, and a "show on startup" toggle like PIO Home.
 
 import * as vscode from "vscode";
-import { resolve, runJson, detectIsProject } from "./cli";
+import { resolve, runJson, detectIsProject, invalidateReadCache } from "./cli";
 import { esc, htmlShell, mediaUri } from "./webview";
 
 let panel: vscode.WebviewPanel | undefined;
@@ -47,6 +47,7 @@ export async function showHome(context: vscode.ExtensionContext): Promise<void> 
           panel.webview.html = await render(panel.webview, context);
         }
       } else if (msg?.type === "refresh") {
+        invalidateReadCache(); // explicit refresh re-reads the CLI
         panel.webview.html = await render(panel.webview, context);
       } else if (msg?.type === "setStartup") {
         await vscode.workspace

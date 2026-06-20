@@ -253,8 +253,38 @@ function termCmd(tokens: string[]): string {
   return (needsCall ? "& " : "") + tokens.map(quote).join(" ");
 }
 
+// Short-TTL cache for read verbs (doctor/ports). On one activation/refresh the
+// tree and the Home page each ask for doctor+ports; caching the in-flight promise
+// coalesces those near-simultaneous calls into a single CLI spawn (venv-python
+// startup is the cost). Cleared on Refresh so an explicit refresh always re-reads.
+const READ_TTL_MS = 1500;
+const readCache = new Map<string, { t: number; v: Promise<any> }>();
+
+/** Drop cached read results so the next runJson() re-spawns the CLI. */
+export function invalidateReadCache(): void {
+  readCache.clear();
+}
+
 /** Run a verb with --json and return the parsed envelope. Rejects on bad JSON. */
 export function runJson<T = any>(r: Resolved, args: string[]): Promise<T> {
+  const key = `${r.cwd} ${r.exec.file} ${args.join(" ")}`;
+  const now = Date.now();
+  const hit = readCache.get(key);
+  if (hit && now - hit.t < READ_TTL_MS) {
+    return hit.v as Promise<T>;
+  }
+  const p = runJsonUncached<T>(r, args);
+  readCache.set(key, { t: now, v: p });
+  // Don't cache failures: drop on rejection so the next call retries.
+  p.catch(() => {
+    if (readCache.get(key)?.v === p) {
+      readCache.delete(key);
+    }
+  });
+  return p;
+}
+
+function runJsonUncached<T = any>(r: Resolved, args: string[]): Promise<T> {
   const full = [...r.exec.baseArgs, "--json", ...args];
   return new Promise((resolve, reject) => {
     execFile(

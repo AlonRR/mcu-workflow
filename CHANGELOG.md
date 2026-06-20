@@ -106,6 +106,11 @@ All notable changes are documented here. The format follows
   hardcoding `esp32c3`; and terminal arguments are quoted correctly for
   PowerShell (the Windows default integrated terminal).
 
+### Changed
+- VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a
+  single activation or refresh no longer spawns the CLI several times over (the
+  tree and Home page previously each ran both); an explicit Refresh clears it.
+
 ## [0.2.0]
 
 - First end-to-end run on real two-ESP32-C3 hardware: validate → scaffold →

@@ -17,7 +17,5 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.11"
-      - name: Install (editable, with dev extras)
-        run: uv pip install --system -e ".[dev]"
       - name: Run tests
-        run: pytest
+        run: uv run --extra dev pytest

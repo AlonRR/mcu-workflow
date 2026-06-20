@@ -91,6 +91,9 @@ All notable changes are documented here. The format follows
 - `tools/satcheck.py` resolved the workbench relative to its own `tools/`
   directory after the move to a standard layout, so every invocation crashed at
   import; it now resolves the repo root correctly.
+- CI smoke job runs `uv run --extra dev pytest` instead of a bare `pytest`,
+  which need not resolve under the uv-managed interpreter (matches the lint
+  workflow's uv usage).
 
 ## [0.2.0]
 

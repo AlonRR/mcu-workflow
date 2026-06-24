@@ -1159,13 +1159,18 @@ def verb_doctor(args):
         + (" (.venv)" if mods.get("esptool") else "  (host flashing)")
     )
     lines.append("  build toolchain:")
+    # When the cage (docker) is available the native toolchain is an alternative,
+    # not a requirement - say "not needed" rather than "missing" so a green run
+    # doesn't look broken. Only call it out as actually needed when there's no
+    # cage to fall back on.
+    native_absent_note = "  (not needed - using cage)" if tools["docker"] else "  (not installed)"
     for t in ("idf.py", "cmake", "ninja"):
         lines.append(
             "    ["
             + ("ok " if tools[t] else "-- ")
             + "] "
             + t
-            + (("  " + tools[t]) if tools[t] else "  (missing)")
+            + (("  " + tools[t]) if tools[t] else native_absent_note)
         )
     if not tools["idf.py"]:
         lines.append(

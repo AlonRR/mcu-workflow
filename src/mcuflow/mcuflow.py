@@ -83,6 +83,24 @@ def _venv_python(venv=None):
     return venv / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
+def _venv_scripts_dir(venv=None):
+    venv = venv or _venv_dir()
+    return venv / ("Scripts" if os.name == "nt" else "bin")
+
+
+def _which_venv_aware(name):
+    """Locate an executable/console-script, preferring the project .venv's
+    Scripts/bin dir before PATH. pip/uv install entry points like `pytest` and
+    `esptool` there, but the venv's bin dir isn't on PATH when mcuflow runs via
+    its own venv python - so a plain shutil.which() would report them missing."""
+    sdir = _venv_scripts_dir()
+    if sdir.is_dir():
+        hit = shutil.which(name, path=str(sdir))
+        if hit:
+            return hit
+    return shutil.which(name)
+
+
 def _same_path(a, b):
     """Path equality that survives 8.3 short names and case on Windows."""
     try:
@@ -782,12 +800,17 @@ def _ensure_venv(uv_argv):
 def _uv_install_project(uv_argv):
     """Editable-install the project (and its declared dependencies) into the
     .venv. pyproject.toml is the single source of truth for the deps, and this
-    also creates the `mcuflow` console script."""
+    also creates the `mcuflow` console script. Includes the [dev] extra so the
+    regression suite (pytest) and lint hooks (ruff/pre-commit) - which doctor
+    checks for and CLAUDE.md task #1 runs - are provisioned, not just the
+    runtime deps."""
     vpy = _venv_python()
-    cmd = uv_argv + ["pip", "install", "--python", str(vpy), "-e", str(REPO_ROOT)]
+    target = str(REPO_ROOT) + "[dev]"
+    cmd = uv_argv + ["pip", "install", "--python", str(vpy), "-e", target]
     rc, out, err = _run(cmd)
     return rc == 0, (
-        "uv pip install -e . -> .venv: " + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip())
+        "uv pip install -e .[dev] -> .venv: "
+        + ("ok" if rc == 0 else "FAILED\n" + (out + err).strip())
     )
 
 
@@ -1105,7 +1128,8 @@ def verb_doctor(args):
     # idf.py/esptool), plus the generic ones every platform shares.
     platform_tools = list(_adapter("esp32").toolchain_tools)
     tools = {
-        t: shutil.which(t) for t in platform_tools + ["pytest", "cmake", "ninja", "git", "docker"]
+        t: _which_venv_aware(t)
+        for t in platform_tools + ["pytest", "cmake", "ninja", "git", "docker"]
     }
     # Python deps (incl. esptool) live in the .venv - check there, not just PATH.
     mods = _module_status(["yaml", "jsonschema", "serial", "esptool"])

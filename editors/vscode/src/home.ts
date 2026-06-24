@@ -6,7 +6,7 @@
 // --json output, and a "show on startup" toggle like PIO Home.
 
 import * as vscode from "vscode";
-import { resolve, runJson, detectIsProject, invalidateReadCache } from "./cli";
+import { resolve, runJson, detectIsProject, invalidateReadCache, classifyTools } from "./cli";
 import { esc, htmlShell, mediaUri } from "./webview";
 
 let panel: vscode.WebviewPanel | undefined;
@@ -83,9 +83,9 @@ async function gatherStatus(): Promise<Status> {
     const s: Status = { cli: true, how: r.how };
     if (!doctor.__err) {
       s.doctorOk = doctor.ok;
-      s.missingTools = Object.entries(doctor.tools)
-        .filter(([, v]) => !v)
-        .map(([k]) => k);
+      s.missingTools = classifyTools(doctor.tools)
+        .filter((t) => !t.present && !t.notNeeded)
+        .map((t) => t.name);
     }
     if (!portsRep.__err) {
       s.ports = portsRep.ports;

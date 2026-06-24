@@ -8,7 +8,7 @@
 // rather than throwing.
 
 import * as vscode from "vscode";
-import { resolve, runJson, detectIsProject, Resolved } from "./cli";
+import { resolve, runJson, detectIsProject, classifyTools, Resolved } from "./cli";
 
 type NodeKind = "group" | "board" | "action" | "info" | "error";
 
@@ -188,12 +188,18 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
     try {
       const d = await runJson<DoctorReport>(r, ["doctor"]);
       ok = d.ok;
-      const tools = Object.entries(d.tools);
-      for (const [name, p] of tools) {
-        const n = new Node(name, "info", vscode.TreeItemCollapsibleState.None);
-        n.description = p ? "found" : "missing";
-        n.iconPath = new vscode.ThemeIcon(p ? "pass" : "circle-slash");
-        n.tooltip = p ?? `${name} not found on PATH`;
+      for (const t of classifyTools(d.tools)) {
+        const path = d.tools[t.name];
+        const n = new Node(t.name, "info", vscode.TreeItemCollapsibleState.None);
+        n.description = t.present ? "found" : t.notNeeded ? "not needed (cage)" : "missing";
+        n.iconPath = new vscode.ThemeIcon(
+          t.present ? "pass" : t.notNeeded ? "circle-outline" : "circle-slash"
+        );
+        n.tooltip = t.present
+          ? (path as string)
+          : t.notNeeded
+            ? `${t.name} not installed — the Docker cage provides it`
+            : `${t.name} not found on PATH`;
         children.push(n);
       }
       const mods = Object.entries(d.modules)

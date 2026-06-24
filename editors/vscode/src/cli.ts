@@ -39,6 +39,35 @@ function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
+/**
+ * Native ESP-IDF build tools that the Docker cage replaces. When `docker` is
+ * present these are an *alternative*, not a requirement - the CLI's doctor
+ * reports them "not needed - using cage" instead of "missing". The GUI mirrors
+ * that so a cage-only machine (the supported default) doesn't look broken.
+ */
+export const NATIVE_TOOLCHAIN = ["idf.py", "cmake", "ninja"];
+
+export interface ToolStatus {
+  name: string;
+  present: boolean;
+  /** Absent but covered by the cage (docker present) - render as "not needed". */
+  notNeeded: boolean;
+}
+
+/**
+ * Classify each entry in a doctor report's `tools` map, applying the same
+ * cage-aware rule the CLI uses: a native toolchain binary that's absent counts
+ * as "not needed" (not "missing") when docker is available to run the cage.
+ */
+export function classifyTools(tools: Record<string, string | null>): ToolStatus[] {
+  const cage = !!tools["docker"];
+  return Object.entries(tools).map(([name, p]) => ({
+    name,
+    present: !!p,
+    notNeeded: !p && cage && NATIVE_TOOLCHAIN.includes(name),
+  }));
+}
+
 function exists(p: string): boolean {
   try {
     fs.accessSync(p);

@@ -14,6 +14,7 @@ import {
   isWorkspaceMcuflow,
   detectIsProject,
   invalidateReadCache,
+  classifyTools,
   Resolved,
 } from "./cli";
 import { McuflowTree } from "./tree";
@@ -180,18 +181,19 @@ export function activate(context: vscode.ExtensionContext) {
     }
     try {
       const d = await runJson<any>(r, ["doctor"]);
-      const missing = Object.entries(d.tools)
-        .filter(([, v]) => !v)
-        .map(([k]) => k);
+      const tools = classifyTools(d.tools);
+      const missing = tools.filter((t) => !t.present && !t.notNeeded).map((t) => t.name);
+      const notNeeded = tools.filter((t) => t.notNeeded).map((t) => t.name);
       const modsMissing = Object.entries(d.modules)
         .filter(([, v]) => !v)
         .map(([k]) => k);
       const lines = [
         `Doctor: ${d.ok ? "ready ✓" : "needs attention"}`,
         `ports: ${d.ports.join(", ") || "none"}`,
-        missing.length ? `missing tools: ${missing.join(", ")}` : "all tools found",
+        missing.length ? `missing tools: ${missing.join(", ")}` : "all required tools found",
+        notNeeded.length ? `not needed (cage): ${notNeeded.join(", ")}` : "",
         modsMissing.length ? `missing modules: ${modsMissing.join(", ")}` : "all modules present",
-      ];
+      ].filter(Boolean);
       const pick = await vscode.window.showInformationMessage(
         lines.join("   |   "),
         ...(d.ok ? [] : ["Install Prerequisites"])

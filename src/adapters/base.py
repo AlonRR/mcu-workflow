@@ -32,7 +32,10 @@ class PlatformAdapter:
         raise NotImplementedError
 
     def monitor_cmd(self, path=".", port=None):
-        raise NotImplementedError
+        # A plain pyserial miniterm works for any platform without its own
+        # toolchain-integrated monitor (ESP32 overrides this with `idf.py
+        # monitor`) - shared here for the same reason test_cmd is, below.
+        return ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
 
     def test_cmd(self, pyfile, target=None):
         # pytest-embedded is not ESP-exclusive, so the test verb is shared.

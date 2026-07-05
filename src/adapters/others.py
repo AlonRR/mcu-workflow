@@ -34,8 +34,7 @@ class Stm32Adapter(PlatformAdapter):
             "program build/firmware.elf verify reset exit",
         ]
 
-    def monitor_cmd(self, path=".", port=None):
-        return ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
+    # monitor_cmd: the base class's plain miniterm default is fine here.
 
 
 class Rp2040Adapter(PlatformAdapter):
@@ -51,8 +50,7 @@ class Rp2040Adapter(PlatformAdapter):
     def flash_cmd(self, path=".", port=None):
         return ["picotool", "load", "-x", "build/firmware.uf2"]
 
-    def monitor_cmd(self, path=".", port=None):
-        return ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
+    # monitor_cmd: the base class's plain miniterm default is fine here.
 
 
 class ZephyrAdapter(PlatformAdapter):
@@ -68,9 +66,4 @@ class ZephyrAdapter(PlatformAdapter):
     def flash_cmd(self, path=".", port=None):
         return ["west", "flash"]
 
-    def monitor_cmd(self, path=".", port=None):
-        return (
-            ["west", "espressif", "monitor"]
-            if False
-            else ["python", "-m", "serial.tools.miniterm", port or "/dev/ttyACM0", "115200"]
-        )
+    # monitor_cmd: the base class's plain miniterm default is fine here.

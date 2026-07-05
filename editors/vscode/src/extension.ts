@@ -74,8 +74,14 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeWorkspaceFolders(() => void updateProjectContext())
   );
 
-  const refreshAll = () => {
-    invalidateReadCache(); // force fresh doctor/ports reads on an explicit refresh
+  const refreshAll = (opts?: { skipInvalidate?: boolean }) => {
+    // force fresh doctor/ports reads on an explicit refresh - skipped when the
+    // caller already just fetched fresh data itself (e.g. mcuflow.doctor),
+    // so the tree/status bar can serve that same still-warm cache entry
+    // instead of re-spawning the CLI a second time for the same answer.
+    if (!opts?.skipInvalidate) {
+      invalidateReadCache();
+    }
     void updateProjectContext();
     tree.refresh();
     updatePortStatus();
@@ -224,7 +230,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
     try {
       const d = await runJson<any>(r, ["doctor"]);
-      const tools = classifyTools(d.tools);
+      const tools = classifyTools(d.tools, d.not_needed);
       const missing = tools.filter((t) => !t.present && !t.notNeeded).map((t) => t.name);
       const notNeeded = tools.filter((t) => t.notNeeded).map((t) => t.name);
       const modsMissing = Object.entries(d.modules)
@@ -247,7 +253,10 @@ export function activate(context: vscode.ExtensionContext) {
     } catch (e: any) {
       vscode.window.showErrorMessage(`mcuflow doctor failed: ${e.message ?? e}`);
     }
-    refreshAll();
+    // The fetch above already just populated the doctor cache entry - don't
+    // invalidate it a heartbeat later only to have the tree re-spawn the CLI
+    // for the identical answer.
+    refreshAll({ skipInvalidate: true });
   });
 
   reg("mcuflow.doctorFix", () => term("doctor --fix", ["doctor", "--fix"]));
@@ -650,14 +659,13 @@ async function runSetup(): Promise<void> {
   terminals.set("mcuflow: setup", t);
   t.show();
   const isWin = process.platform === "win32";
-  // uv-managed venv + editable install + self-install of prerequisites.
   const mcuflow = isWin ? ".\\bin\\mcuflow.bat" : "./bin/mcuflow";
-  const lines = [
-    "uv venv",
-    'uv pip install -e ".[dev]"',
-    `${mcuflow} doctor --fix`,
-    `${mcuflow} doctor`,
-  ];
+  // doctor --fix itself creates the uv-managed .venv and does the editable
+  // [dev] install (see mcuflow.py's _doctor_fix) - bin/mcuflow falls back to
+  // plain `python` when no .venv exists yet, so it can run this cold. Calling
+  // it directly (instead of reimplementing its bootstrap here) keeps this in
+  // sync with whatever that self-install logic does.
+  const lines = [`${mcuflow} doctor --fix`, `${mcuflow} doctor`];
   for (const l of lines) {
     t.sendText(l, true);
   }

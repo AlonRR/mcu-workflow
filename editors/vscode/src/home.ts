@@ -83,7 +83,7 @@ async function gatherStatus(): Promise<Status> {
     const s: Status = { cli: true, how: r.how };
     if (!doctor.__err) {
       s.doctorOk = doctor.ok;
-      s.missingTools = classifyTools(doctor.tools)
+      s.missingTools = classifyTools(doctor.tools, doctor.not_needed)
         .filter((t) => !t.present && !t.notNeeded)
         .map((t) => t.name);
     }
@@ -142,8 +142,7 @@ function statusHtml(s: Status): string {
 }
 
 async function render(webview: vscode.Webview, context: vscode.ExtensionContext): Promise<string> {
-  const s = await gatherStatus();
-  const isProject = await detectIsProject();
+  const [s, isProject] = await Promise.all([gatherStatus(), detectIsProject()]);
   const iconUri = mediaUri(webview, context.extensionUri, "icon.png");
   const showOnStartup = vscode.workspace
     .getConfiguration("mcuflow")

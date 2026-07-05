@@ -41,6 +41,7 @@ interface PortsReport {
 interface DoctorReport {
   ok: boolean;
   tools: Record<string, string | null>;
+  not_needed?: string[];
   modules: Record<string, boolean>;
   ports: string[];
 }
@@ -119,13 +120,19 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
       setPath.iconPath = new vscode.ThemeIcon("settings-gear");
       return isProj ? [head, setup, setPath, newProj, open] : [head, newProj, open, setup];
     }
-    const isProj = await detectIsProject();
-    const groups: Node[] = [await this.boardsGroup(r)];
+    // Independent reads (project detection, ports, doctor) - run concurrently
+    // instead of serializing three separate CLI-spawning awaits.
+    const [isProj, boards, doctor] = await Promise.all([
+      detectIsProject(),
+      this.boardsGroup(r),
+      this.doctorGroup(r),
+    ]);
+    const groups: Node[] = [boards];
     if (isProj) {
       groups.push(this.actionsGroup("Project", PROJECT_ACTIONS));
     }
     groups.push(this.actionsGroup("Tools", TOOL_ACTIONS));
-    groups.push(await this.doctorGroup(r));
+    groups.push(doctor);
     return groups;
   }
 
@@ -188,7 +195,7 @@ export class McuflowTree implements vscode.TreeDataProvider<Node> {
     try {
       const d = await runJson<DoctorReport>(r, ["doctor"]);
       ok = d.ok;
-      for (const t of classifyTools(d.tools)) {
+      for (const t of classifyTools(d.tools, d.not_needed)) {
         const path = d.tools[t.name];
         const n = new Node(t.name, "info", vscode.TreeItemCollapsibleState.None);
         n.description = t.present ? "found" : t.notNeeded ? "not needed (cage)" : "missing";

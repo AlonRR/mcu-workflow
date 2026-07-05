@@ -101,6 +101,22 @@ def _which_venv_aware(name):
     return shutil.which(name)
 
 
+def _ensure_venv_scripts_on_path():
+    """Prepend the .venv Scripts/bin dir to PATH for this process.
+
+    doctor --fix installs console scripts (pytest, esptool) into the venv, and
+    doctor *checks* them venv-aware - but execution paths (`_need_tool` +
+    subprocess by bare name) resolve via PATH. Fixing PATH once here keeps
+    every check and every invocation consistent with what doctor reported,
+    instead of patching each call site."""
+    sdir = _venv_scripts_dir()
+    if not sdir.is_dir():
+        return
+    parts = os.environ.get("PATH", "").split(os.pathsep)
+    if not any(_same_path(p, sdir) for p in parts if p):
+        os.environ["PATH"] = str(sdir) + os.pathsep + os.environ.get("PATH", "")
+
+
 def _same_path(a, b):
     """Path equality that survives 8.3 short names and case on Windows."""
     try:
@@ -732,14 +748,20 @@ def verb_debug(args):
 
 
 def _list_serial_ports():
-    """Device names of connected serial ports.
+    """Device names of connected serial ports; never raises.
 
     Delegates to the port viewer's enumerator so doctor and `mcuflow ports` give
     the same answer (one source of truth), with a POSIX glob fallback for the
     case where pyserial isn't importable yet (e.g. before `doctor --fix`).
+    doctor calls this, and doctor is what users run when the environment is
+    broken - a missing sibling module (non-editable install) or a failing
+    enumerator must degrade to "no ports", not a traceback.
     """
-    pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
-    ports = [p["device"] for p in pv.list_ports_info()]
+    try:
+        pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+        ports = [p["device"] for p in pv.list_ports_info()]
+    except Exception:
+        ports = []
     if not ports and os.name != "nt":
         import glob
 
@@ -1404,6 +1426,9 @@ def _global_flag_strings(parser):
 def main(argv=None):
     # Run under the project's uv-managed .venv if one exists (re-execs once).
     _maybe_reexec_into_venv()
+    # The venv's console scripts (pytest, esptool) must resolve exactly like
+    # doctor reports them - see _ensure_venv_scripts_on_path.
+    _ensure_venv_scripts_on_path()
     argv = list(sys.argv[1:] if argv is None else argv)
     parser = build_parser()
     # Delegate wrapped tools before argparse, so their own flags pass through

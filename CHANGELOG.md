@@ -122,6 +122,13 @@ All notable changes are documented here. The format follows
   host, timeout, connection refused) — as a normal failed result instead of a
   raised exception, so `hil` always produces its structured per-step report
   instead of crashing.
+- `mcuflow` now prepends the `.venv` Scripts/bin dir to `PATH` at startup, so
+  tool checks and invocations (e.g. `test`'s pytest) resolve exactly like
+  `doctor` reports them — `doctor --fix` followed by `mcuflow test` works
+  instead of exiting 127 against a green doctor.
+- `doctor`'s port listing never crashes: a missing sibling module
+  (non-editable install) or a failing enumerator degrades to "no ports"
+  instead of a traceback — doctor is what users run when things are broken.
 
 ### Changed
 - VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a

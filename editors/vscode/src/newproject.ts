@@ -1,10 +1,13 @@
 // "New Project" step 0: turn a few answers into a skeleton board.yml.
 //
 // board.yml is the project contract (the single source of truth the CLI scaffolds
-// from). This builds a *valid skeleton* — meta is correct and complete, extras are
-// included when asked — that always passes `mcuflow validate`. Pin numbers are only
-// asserted for the esp32c3 (the board we can speak to confidently); for other chips
-// they're left as VERIFY comments for the "Refine with Agent" pass to fill in.
+// from). This builds an *honest skeleton*: nothing is assumed, so platform/chip
+// (and framework, when surfaced) are TODO placeholders that fail `mcuflow
+// validate` by design until the post-open Configure step (or the agent) resolves
+// them — Configure-supplied values are written verbatim and validate clean. Pin
+// numbers are only asserted for the esp32c3 (the board we can speak to
+// confidently); for other chips they're left as VERIFY comments for the
+// "Refine with Agent" pass to fill in.
 //
 // Schema constraints respected (src/board-schema/board.schema.json):
 //   meta.required = [project, platform, chip]; platform ∈ esp32|stm32|rp2040|zephyr
@@ -61,6 +64,13 @@ export function validateNewProject(name: string, location: string): string | nul
   }
   if (!/^[A-Za-z0-9._-]+$/.test(name.trim())) {
     return "Name: use only letters, digits, dot, dash, underscore.";
+  }
+  // "." / ".." pass the character class but are path navigation, not names -
+  // path.join(location, "..") would write the project into the PARENT folder
+  // (silently clobbering e.g. its .vscode/settings.json). All-dot names have
+  // no other meaning, so reject the lot.
+  if (/^\.+$/.test(name.trim())) {
+    return "Name: cannot consist only of dots.";
   }
   return null;
 }

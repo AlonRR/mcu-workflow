@@ -296,7 +296,7 @@ export function invalidateReadCache(): void {
 
 /** Run a verb with --json and return the parsed envelope. Rejects on bad JSON. */
 export function runJson<T = any>(r: Resolved, args: string[]): Promise<T> {
-  const key = `${r.cwd} ${r.exec.file} ${args.join(" ")}`;
+  const key = `${r.cwd} ${r.exec.file} ${args.join(" ")}`;
   const now = Date.now();
   const hit = readCache.get(key);
   if (hit && now - hit.t < READ_TTL_MS) {

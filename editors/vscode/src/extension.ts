@@ -127,13 +127,56 @@ export function activate(context: vscode.ExtensionContext) {
   reg("mcuflow.run", () =>
     term("run", [...simFlag(), "run", board(), ...portArgs()])
   );
-  // test/hil take a required positional: `test` a pyfile (a board.yml under --sim),
-  // `hil` the board.yml. Pass board() so the CLI doesn't error with a usage message.
-  reg("mcuflow.test", () => term("test", [...simFlag(), "test", board()]));
-  reg("mcuflow.hil", () => term("hil", [...simFlag(), "hil", board()]));
+  // `hil`'s positional is always a board.yml. `test`'s positional is only a
+  // board.yml under --sim (delegates to the HIL harness); without --sim it's
+  // an actual pytest file, so board() would be the wrong argument there.
+  reg("mcuflow.test", async () => {
+    const r = need();
+    if (!r) {
+      return;
+    }
+    if (simFlag().length) {
+      runInTerminal("test", r, [...simFlag(), "test", board()]);
+    } else {
+      const picked = await vscode.window.showOpenDialog({
+        canSelectMany: false,
+        filters: { "Python tests": ["py"] },
+        openLabel: "Run with pytest",
+        title: "Select a pytest file to run against the DUT",
+      });
+      if (!picked || !picked.length) {
+        return;
+      }
+      runInTerminal("test", r, ["test", picked[0].fsPath]);
+    }
+    setTimeout(refreshAll, 1500);
+  });
+  reg("mcuflow.hil", () => term("hil", ["hil", board()]));
   reg("mcuflow.validate", () => term("validate", ["validate", board()]));
   reg("mcuflow.scaffold", () => term("scaffold", ["scaffold", board()]));
-  reg("mcuflow.workbench", () => term("workbench", ["workbench"]));
+  reg("mcuflow.workbench", () => {
+    // The CLI now defaults to a loopback-only bind (see workbench.py). Let
+    // the user opt into LAN sharing + a token via settings instead of the
+    // extension silently reproducing the old always-LAN behavior.
+    const host = (cfg().get<string>("workbench.host") || "").trim();
+    const token = (cfg().get<string>("workbench.token") || "").trim();
+    const args = ["workbench"];
+    if (host) {
+      args.push("--host", host);
+    }
+    if (token) {
+      args.push("--token", token);
+    }
+    const loopback = !host || ["127.0.0.1", "localhost", "::1"].includes(host);
+    if (!loopback && !token) {
+      vscode.window.showWarningMessage(
+        `Starting the workbench on ${host} with no token set ` +
+          "(mcuflow.workbench.token) - the HTTP API and MQTT broker will be " +
+          "open to every host that can reach it."
+      );
+    }
+    term("workbench", args);
+  });
   reg("mcuflow.up", () => term("up", ["up"]));
 
   reg("mcuflow.bridge", async () => {
@@ -287,16 +330,46 @@ function runInTerminal(name: string, r: Resolved, args: string[]): void {
   t.sendText(line, true);
 }
 
+type ShellKind = "cmd" | "powershell" | "posix";
+
+function detectShellKind(): ShellKind {
+  // vscode.env.shell is the best available signal for which integrated
+  // terminal profile is actually in use (Windows offers PowerShell, cmd.exe,
+  // Git Bash, WSL...) - platform alone isn't enough to pick a quoting style.
+  const shellPath = (vscode.env.shell || "").toLowerCase();
+  if (shellPath.includes("cmd.exe") || /(^|[\\/])cmd$/.test(shellPath)) {
+    return "cmd";
+  }
+  if (shellPath.includes("powershell") || shellPath.includes("pwsh")) {
+    return "powershell";
+  }
+  if (process.platform === "win32") {
+    // vscode.env.shell can be unset on some hosts; PowerShell is VS Code's
+    // own default Windows profile, so it's the safer fallback guess.
+    return "powershell";
+  }
+  return "posix";
+}
+
 function shellQuote(s: string): string {
-  if (!/[\s"]/.test(s)) {
+  // Conservative whitelist: excludes `@` (a bare `@name` token is PowerShell's
+  // splat operator, not a literal) alongside every shell metacharacter.
+  if (/^[A-Za-z0-9_%+=:,./-]+$/.test(s)) {
     return s;
   }
-  // The integrated terminal defaults to PowerShell on Windows, where a literal
-  // double-quote inside a double-quoted string is escaped by doubling it (`""`),
-  // not with a backslash. POSIX shells use the backslash form.
-  return process.platform === "win32"
-    ? `"${s.replace(/"/g, '""')}"`
-    : `"${s.replace(/"/g, '\\"')}"`;
+  const kind = detectShellKind();
+  if (kind === "cmd") {
+    // cmd.exe has no true escape for an embedded double-quote; doubling it is
+    // the conventional approximation most targets (CommandLineToArgvW-style
+    // parsers) accept.
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  // Single quotes make the argument fully literal in both remaining targets -
+  // double quotes would leave `$var`, backticks (POSIX command substitution),
+  // and PowerShell's backtick escapes live inside the string.
+  return kind === "powershell"
+    ? `'${s.replace(/'/g, "''")}'`
+    : `'${s.replace(/'/g, "'\\''")}'`;
 }
 
 // --- port picker -------------------------------------------------------------
@@ -304,6 +377,10 @@ function shellQuote(s: string): string {
 async function pickPortQuick(r: Resolved): Promise<string | undefined> {
   let rep: any;
   try {
+    // Bypass the read cache: the tree/Home views may have populated it up to
+    // READ_TTL_MS ago, which could hide a board the user just plugged in
+    // right before opening this picker.
+    invalidateReadCache();
     rep = await runJson<any>(r, ["ports"]);
   } catch (e: any) {
     vscode.window.showErrorMessage(`Could not list ports: ${e.message ?? e}`);
@@ -495,22 +572,33 @@ async function maybeRunConfigure(): Promise<boolean> {
 
 async function runRefineWithAgent(fileArg?: string): Promise<void> {
   // Resolve the board.yml to refine: explicit arg, active editor, or workspace.
+  // The configured board file (mcuflow.boardFile, default examples/board-c3.yml)
+  // is the project's real board.yml just as often as a literal "board.yml" -
+  // match either basename, not only the literal default.
+  const configuredBase = path.basename(
+    vscode.workspace.getConfiguration("mcuflow").get<string>("boardFile") ||
+      "examples/board-c3.yml"
+  );
   let file = fileArg;
   if (!file) {
     const active = vscode.window.activeTextEditor?.document;
-    if (active && path.basename(active.fileName) === "board.yml") {
-      file = active.fileName;
+    const activeBase = active ? path.basename(active.fileName) : undefined;
+    if (activeBase === configuredBase || activeBase === "board.yml") {
+      file = active!.fileName;
     }
   }
   if (!file) {
     const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (root) {
-      const cand = path.join(root, "board.yml");
-      try {
-        await vscode.workspace.fs.stat(vscode.Uri.file(cand));
-        file = cand;
-      } catch {
-        /* none */
+      for (const base of [configuredBase, "board.yml"]) {
+        const cand = path.join(root, base);
+        try {
+          await vscode.workspace.fs.stat(vscode.Uri.file(cand));
+          file = cand;
+          break;
+        } catch {
+          /* try the next candidate */
+        }
       }
     }
   }

@@ -51,6 +51,16 @@
           "type": "boolean",
           "default": true,
           "description": "Open the MCU Flow Home page when a window starts (like PlatformIO Home)."
+        },
+        "mcuflow.workbench.host": {
+          "type": "string",
+          "default": "",
+          "description": "Bind address for 'Start Workbench' (--host). Leave empty for the CLI default (127.0.0.1, local-only). Set to 0.0.0.0 to share on the LAN - pair with a token below."
+        },
+        "mcuflow.workbench.token": {
+          "type": "string",
+          "default": "",
+          "description": "Shared secret for 'Start Workbench' (--token). Required by every HTTP endpoint except /api/health when set; strongly recommended whenever the host above is not loopback."
         }
       }
     },

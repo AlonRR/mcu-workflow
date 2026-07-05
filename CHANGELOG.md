@@ -136,6 +136,34 @@ All notable changes are documented here. The format follows
   is now copied); `caps` only advertises what the edition implements (BLE
   removed — it's an IDF-edition stub here); and `siggen.start/stop` are
   implemented via LEDC for protocol parity with the IDF edition (core 3.x API).
+- VS Code extension: terminal arguments are single-quoted (fully literal) on
+  PowerShell and POSIX shells — the double-quote form left `` ` `` and `$`
+  live, so bash/zsh executed the backtick-wrapped `mcuflow validate` inside
+  the Refine prompt via command substitution before the agent ever saw it.
+  cmd.exe (which doesn't treat `'` as a quote character at all) is now
+  detected via `vscode.env.shell` and gets its own double-quote form; the
+  "safe to leave unquoted" allowlist no longer includes `@`, which PowerShell
+  parses as the splat operator in leading position.
+- VS Code extension: New Project rejects names consisting only of dots — `..`
+  passed the character whitelist and `path.join(location, "..")` would write
+  the project (and silently overwrite `.vscode/settings.json`) into the
+  *parent* of the chosen folder.
+- VS Code extension: `Test (HIL)` no longer passes `board.yml` to `pytest`
+  when `mcuflow.simulate` is off (the default) — the CLI's `test` positional
+  is only a board.yml under `--sim`; without it, it prompts for an actual
+  pytest file.
+- VS Code extension: `Refine with Agent`'s auto-detect matches the *configured*
+  board file (`mcuflow.boardFile`, e.g. `examples/board-c3.yml`) as well as a
+  literal `board.yml`, in both the active-editor check and the workspace-root
+  fallback — it had narrowed to an exact `board.yml` match only, missing every
+  project using the extension's own non-default default.
+- VS Code extension: the port picker (`pickPort`/`bridge`) forces a fresh
+  `ports` read instead of reusing the 1.5 s cache the tree/Home views may have
+  just populated, so a board plugged in immediately beforehand isn't missing
+  from the list.
+- Fixed two literal NUL bytes that had corrupted `cli.ts`'s cache-key line
+  (`${r.cwd}\0${r.exec.file}...`), which made grep/file-type tools treat the
+  whole file as binary.
 
 ### Changed
 - VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a
@@ -155,6 +183,11 @@ All notable changes are documented here. The format follows
   compare); the HIL harness sends it automatically from the environment.
 - POST bodies are capped at 32 MiB (413 beyond that) — `Content-Length` was
   previously read into RAM unbounded.
+- VS Code extension: `Start Workbench` gained `mcuflow.workbench.host` /
+  `mcuflow.workbench.token` settings (both default empty, so the CLI's
+  loopback-only default applies unchanged) and warns in the UI when a
+  non-loopback host is set with no token — the command previously always
+  launched with no flags, silently inheriting whatever the CLI defaulted to.
 
 ## [0.2.0]
 

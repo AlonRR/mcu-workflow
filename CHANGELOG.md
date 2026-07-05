@@ -131,6 +131,11 @@ All notable changes are documented here. The format follows
   instead of a traceback — doctor is what users run when things are broken.
 - Launcher: the "docker not found" guard now applies on Windows too, replacing
   a raw `FileNotFoundError` traceback with the friendly exit-127 message.
+- Arduino satellite edition: the unknown-command reply no longer serializes a
+  dangling pointer (ArduinoJson stores `const char*` by reference; the String
+  is now copied); `caps` only advertises what the edition implements (BLE
+  removed — it's an IDF-edition stub here); and `siggen.start/stop` are
+  implemented via LEDC for protocol parity with the IDF edition (core 3.x API).
 
 ### Changed
 - VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a

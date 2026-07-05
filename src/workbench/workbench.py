@@ -33,9 +33,16 @@ Instrument endpoints (POST, JSON body) - driven through the satellite backend:
   /api/mqtt/publish       {topic, payload}            -> {"ok": true}  (+broker on :1883)
   /api/ble/scan           {timeout?}                  -> {"ok": true, "devices": [...]}
 
-Run:  python workbench.py --port 6283                       # binds 0.0.0.0
+Run:  python workbench.py --port 6283                       # binds 127.0.0.1
       python workbench.py --satellite sim                   # emulated radios
       python workbench.py --satellite /dev/ttyACM1          # real satellite
+      python workbench.py --host 0.0.0.0 --token s3cret     # share on the LAN
+
+Security: the default bind is loopback-only. To let other hosts (or a DUT
+shipping UDP logs / pulling OTA images) reach it, pass --host 0.0.0.0 — and
+set --token (or WORKBENCH_TOKEN) so the HTTP API requires
+`Authorization: Bearer <token>`; every endpoint except /api/health is gated.
+The embedded MQTT broker has no auth, so only expose it on a rig network.
 """
 
 from __future__ import annotations
@@ -43,6 +50,7 @@ from __future__ import annotations
 import argparse
 import base64
 import glob
+import hmac
 import json
 import os
 import platform
@@ -63,7 +71,14 @@ START = time.time()
 # Device logs received over UDP (read at /api/udplog). A board can ship its log
 # lines to the workbench when its USB serial is busy (HID gadget, mid-OTA); the
 # firmware just sends UDP datagrams to <workbench-ip>:<udp_port>.
+# The lock covers append vs. snapshot: iterating a deque while another thread
+# appends raises RuntimeError("deque mutated during iteration").
 UDP_LOG = deque(maxlen=2000)
+UDP_LOG_LOCK = threading.Lock()
+
+# Largest accepted POST body. Firmware images are a few MB; the cap keeps a
+# hostile/buggy client from making _read_body swallow gigabytes into RAM.
+MAX_BODY = 32 * 1024 * 1024
 
 # Directory of firmware images served for OTA (GET /firmware/<name>); set in
 # main() from --firmware-dir. A DUT points its OTA URL at
@@ -88,7 +103,10 @@ def _udp_log_listener(host, port):
             break
         for line in data.decode("utf-8", "replace").splitlines():
             if line:
-                UDP_LOG.append({"t": round(time.time() - START, 1), "src": addr[0], "line": line})
+                with UDP_LOG_LOCK:
+                    UDP_LOG.append(
+                        {"t": round(time.time() - START, 1), "src": addr[0], "line": line}
+                    )
 
 
 def open_satellite(spec):
@@ -166,6 +184,7 @@ class Handler(BaseHTTPRequestHandler):
     sat_info = {"backend": "none"}
     sat_lock = threading.Lock()
     mqtt = None  # embedded MQTT broker, if started
+    token = None  # shared secret; when set, every endpoint but /api/health needs it
 
     def _send(self, obj, code=200):
         body = json.dumps(obj).encode("utf-8")
@@ -184,6 +203,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, *a):
         pass
+
+    def _authorized(self):
+        """True if the request may proceed; otherwise sends 401 and returns False.
+
+        With no --token configured everything is open (loopback-only default
+        bind). With a token, /api/health stays open as a liveness probe and
+        everything else requires `Authorization: Bearer <token>` (or the
+        `X-Workbench-Token` header)."""
+        if not self.token or self.path == "/api/health":
+            return True
+        supplied = self.headers.get("X-Workbench-Token", "")
+        auth = self.headers.get("Authorization", "")
+        if not supplied and auth.startswith("Bearer "):
+            supplied = auth[len("Bearer ") :]
+        if supplied and hmac.compare_digest(supplied, self.token):
+            return True
+        self._send({"ok": False, "error": "missing or bad token"}, code=401)
+        return False
 
     def _need_sat(self):
         if self.satellite is None:
@@ -206,8 +243,11 @@ class Handler(BaseHTTPRequestHandler):
                 return {"ok": False, "error": "satellite error: " + str(e)}
 
     def _read_body(self):
-        n = int(self.headers.get("Content-Length", 0) or 0)
-        if not n:
+        try:
+            n = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            return None
+        if n <= 0:
             return {}
         raw = self.rfile.read(n).decode("utf-8")
         try:
@@ -216,6 +256,8 @@ class Handler(BaseHTTPRequestHandler):
             return None
 
     def do_GET(self):
+        if not self._authorized():
+            return
         host = self.headers.get("Host", "localhost").split(":")[0]
         if self.path == "/api/health":
             self._send({"ok": True})
@@ -245,7 +287,9 @@ class Handler(BaseHTTPRequestHandler):
                 n = int(q.get("n", ["100"])[0])
             except ValueError:
                 n = 100
-            rows = [r for r in UDP_LOG if src is None or r["src"] == src]
+            with UDP_LOG_LOCK:
+                snapshot = list(UDP_LOG)
+            rows = [r for r in snapshot if src is None or r["src"] == src]
             self._send({"ok": True, "lines": rows[-n:]})
         elif self.path == "/api/firmware":
             try:
@@ -254,7 +298,7 @@ class Handler(BaseHTTPRequestHandler):
                 names = []
             self._send({"ok": True, "firmware": names})
         elif self.path == "/api/mqtt/recent":
-            msgs = list(self.mqtt.recent) if self.mqtt else []
+            msgs = self.mqtt.recent_messages() if self.mqtt else []
             self._send({"ok": True, "messages": msgs})
         elif self.path.startswith("/firmware/"):
             name = _safe_name(self.path[len("/firmware/") :])
@@ -268,8 +312,20 @@ class Handler(BaseHTTPRequestHandler):
             self._send({"ok": False, "error": "not found: " + self.path}, code=404)
 
     def do_POST(self):
+        if not self._authorized():
+            return
         if not self.path.startswith("/api/"):
             self._send({"ok": False, "error": "not found: " + self.path}, code=404)
+            return
+        try:
+            clen = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            clen = 0
+        if clen > MAX_BODY:
+            self._send(
+                {"ok": False, "error": "body too large (max " + str(MAX_BODY) + " bytes)"},
+                code=413,
+            )
             return
         body = self._read_body()
         if body is None:
@@ -374,8 +430,9 @@ def main(argv=None):
     ap.add_argument("--port", type=int, default=6283)
     ap.add_argument(
         "--host",
-        default="0.0.0.0",
-        help="bind address (default 0.0.0.0 for LAN; use 127.0.0.1 locally)",
+        default="127.0.0.1",
+        help="bind address (default 127.0.0.1, local-only; pass 0.0.0.0 to "
+        "share on the LAN - set --token when you do)",
     )
     ap.add_argument(
         "--satellite",
@@ -405,6 +462,12 @@ def main(argv=None):
         default=1883,
         help="TCP port for the embedded MQTT broker (0 to disable)",
     )
+    ap.add_argument(
+        "--token",
+        default=os.environ.get("WORKBENCH_TOKEN", ""),
+        help="shared secret for the HTTP API (Authorization: Bearer <token>); "
+        "required by every endpoint except /api/health when set",
+    )
     args = ap.parse_args(argv)
 
     FIRMWARE_DIR = args.firmware_dir
@@ -417,6 +480,18 @@ def main(argv=None):
     Handler.satellite = satellite
     Handler.sat_info = sat_info
     Handler.caps = detect_capabilities(extra, satellite)
+    Handler.token = args.token.strip() or None
+
+    # A non-loopback bind with no token means anyone on the network can drive
+    # the instruments and plant OTA images - say so out loud rather than
+    # letting the exposure be silent.
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not Handler.token:
+        print(
+            "WARNING: binding "
+            + args.host
+            + " with no --token: the HTTP API (GPIO, WiFi AP, OTA upload) and "
+            + "MQTT broker are open to every host that can reach this address."
+        )
 
     if args.mqtt_port:
         from workbench.mqtt_broker import Broker
@@ -427,12 +502,22 @@ def main(argv=None):
         Handler.caps["mqtt"] = True
 
     srv = ThreadingHTTPServer((args.host, args.port), Handler)
+    reachability = (
+        "local-only"
+        if args.host in ("127.0.0.1", "localhost", "::1")
+        else "LAN-reachable" + (", token-gated" if Handler.token else ", NO TOKEN")
+    )
+    # Always say how it's reachable - a caller who relied on the pre-hardening
+    # 0.0.0.0 default (and passed no --host at all) gets no other signal that
+    # devices/scripts on the LAN can no longer reach it.
     print(
         "workbench listening on "
         + args.host
         + ":"
         + str(args.port)
-        + "  satellite: "
+        + " ("
+        + reachability
+        + ")  satellite: "
         + sat_info["backend"]
         + "  capabilities: "
         + ",".join(k for k, v in Handler.caps.items() if v)

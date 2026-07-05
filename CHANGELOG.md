@@ -105,11 +105,29 @@ All notable changes are documented here. The format follows
   that happens to be focused; Debug defaults the chip from `board.yml` instead of
   hardcoding `esp32c3`; and terminal arguments are quoted correctly for
   PowerShell (the Windows default integrated terminal).
+- Workbench: `/api/udplog` and `/api/mqtt/recent` snapshot their deques under a
+  lock — iterating while the UDP-listener/MQTT threads append raised
+  intermittent `RuntimeError("deque mutated during iteration")` exactly when
+  log traffic was heaviest.
 
 ### Changed
 - VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a
   single activation or refresh no longer spawns the CLI several times over (the
   tree and Home page previously each ran both); an explicit Refresh clears it.
+
+### Security
+- The workbench binds `127.0.0.1` by default (was `0.0.0.0`): the HTTP API can
+  drive GPIO/WiFi and accept OTA firmware uploads, so LAN exposure is now an
+  explicit choice (`--host 0.0.0.0`), warned about when made without a token.
+  The startup banner always states whether the bind is local-only or
+  LAN-reachable (and token-gated or not) — a caller who relied on the old
+  0.0.0.0 default and passes no `--host` at all now gets a visible signal
+  instead of a silent behavior change.
+- New `--token` / `WORKBENCH_TOKEN` shared secret: when set, every endpoint
+  except `/api/health` requires `Authorization: Bearer <token>` (constant-time
+  compare); the HIL harness sends it automatically from the environment.
+- POST bodies are capped at 32 MiB (413 beyond that) — `Content-Length` was
+  previously read into RAM unbounded.
 
 ## [0.2.0]
 

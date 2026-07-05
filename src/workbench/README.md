@@ -5,9 +5,18 @@ Turns any **Python + USB host** (Raspberry Pi, mini-PC, an old laptop, the dev b
 ## Run
 
 ```bash
-python workbench.py --port 6283                 # binds 0.0.0.0 for the LAN
+python workbench.py --port 6283                 # binds 127.0.0.1 (local-only default)
 python workbench.py --enable wifi,ble,gpio      # advertise satellite-backed instruments
+python workbench.py --host 0.0.0.0 --token s3cret   # share on the LAN, token-gated
 ```
+
+**Security:** the default bind is loopback-only. Sharing on the LAN (`--host
+0.0.0.0`) exposes GPIO/WiFi control and OTA upload to every host that can reach
+the port, so set `--token` (or `WORKBENCH_TOKEN`) — the HTTP API then requires
+`Authorization: Bearer <token>` on everything except `/api/health`, and the HIL
+harness picks the same secret up from `WORKBENCH_TOKEN`. The embedded MQTT
+broker has no auth; only expose it on a trusted rig network. POST bodies are
+capped at 32 MiB.
 
 ## Endpoints
 

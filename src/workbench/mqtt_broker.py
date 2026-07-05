@@ -82,12 +82,22 @@ class Broker:
         self._subs = {}  # client socket -> set of topic filters
         self._lock = threading.Lock()
         self.recent = deque(maxlen=500)  # (topic, payload_str) seen
+        # Covers append vs. snapshot: client threads publish while the
+        # workbench API reads /api/mqtt/recent, and iterating a deque during
+        # an append raises RuntimeError.
+        self._recent_lock = threading.Lock()
+
+    def recent_messages(self):
+        """A thread-safe snapshot of the recent-messages ring."""
+        with self._recent_lock:
+            return list(self.recent)
 
     def publish(self, topic, payload):
         """Fan a message out to matching subscribers (also used by the API)."""
         if isinstance(payload, str):
             payload = payload.encode("utf-8")
-        self.recent.append({"topic": topic, "payload": payload.decode("utf-8", "replace")})
+        with self._recent_lock:
+            self.recent.append({"topic": topic, "payload": payload.decode("utf-8", "replace")})
         pkt = _publish_packet(topic, payload)
         with self._lock:
             targets = [

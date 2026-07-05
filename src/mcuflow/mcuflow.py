@@ -112,8 +112,12 @@ def _ensure_venv_scripts_on_path():
     sdir = _venv_scripts_dir()
     if not sdir.is_dir():
         return
+    # Resolve the (constant) target once instead of re-resolving it inside
+    # _same_path on every PATH entry - this runs on every mcuflow invocation.
+    target = os.path.normcase(os.path.realpath(str(sdir)))
     parts = os.environ.get("PATH", "").split(os.pathsep)
-    if not any(_same_path(p, sdir) for p in parts if p):
+    already = any(os.path.normcase(os.path.realpath(p)) == target for p in parts if p)
+    if not already:
         os.environ["PATH"] = str(sdir) + os.pathsep + os.environ.get("PATH", "")
 
 
@@ -219,58 +223,39 @@ def _read_board(path):
 # --- verbs -----------------------------------------------------------------
 
 
-def verb_validate(args):
-    tool = _validator_path()
+def _run_tool_verb(verb, tool, tool_label, cmd_extra, args, extra_fields=None):
+    """Run a sibling tool script (validate.py/scaffold.py) against args.board,
+    emitting the shared ok/exit_code/board/detail envelope."""
     if not tool.exists():
+        detail = tool_label + " not found at " + str(tool)
         return emit(
-            {
-                "verb": "validate",
-                "ok": False,
-                "exit_code": EXIT_USAGE,
-                "detail": "validator not found at " + str(tool),
-            },
+            {"verb": verb, "ok": False, "exit_code": EXIT_USAGE, "detail": detail},
             args.json,
-            ["x validator not found at " + str(tool)],
+            ["x " + detail],
         )
-    rc, out, err = _run([sys.executable, str(tool), str(args.board)])
-    ok = rc == 0
+    rc, out, err = _run([sys.executable, str(tool), str(args.board)] + cmd_extra)
     result = {
-        "verb": "validate",
-        "ok": ok,
+        "verb": verb,
+        "ok": rc == 0,
         "exit_code": rc,
         "board": str(args.board),
         "detail": (out + err).strip(),
     }
+    if extra_fields:
+        result.update(extra_fields)
     return emit(result, args.json, [(out + err).rstrip()])
+
+
+def verb_validate(args):
+    return _run_tool_verb("validate", _validator_path(), "validator", [], args)
 
 
 def verb_scaffold(args):
-    tool = _scaffold_path()
-    if not tool.exists():
-        return emit(
-            {
-                "verb": "scaffold",
-                "ok": False,
-                "exit_code": EXIT_USAGE,
-                "detail": "scaffold tool not found at " + str(tool),
-            },
-            args.json,
-            ["x scaffold tool not found at " + str(tool)],
-        )
-    cmd = [sys.executable, str(tool), str(args.board)]
-    if args.out:
-        cmd += ["-o", str(args.out)]
-    rc, out, err = _run(cmd)
-    ok = rc == 0
-    result = {
-        "verb": "scaffold",
-        "ok": ok,
-        "exit_code": rc,
-        "board": str(args.board),
-        "out": str(args.out) if args.out else None,
-        "detail": (out + err).strip(),
-    }
-    return emit(result, args.json, [(out + err).rstrip()])
+    out = str(args.out) if args.out else None
+    cmd_extra = ["-o", out] if out else []
+    return _run_tool_verb(
+        "scaffold", _scaffold_path(), "scaffold tool", cmd_extra, args, {"out": out}
+    )
 
 
 def _adapter(platform):
@@ -278,7 +263,8 @@ def _adapter(platform):
     build/flash/monitor to that toolchain's command argv; the conductor runs it.
     This is the seam that keeps the CLI from assuming a specific processor -
     adding a platform is a new adapter, not a CLI change (see src/adapters/)."""
-    sys.path.insert(0, str(ROOT))
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
     from adapters import get_adapter
 
     return get_adapter(platform or "esp32")
@@ -700,6 +686,18 @@ def verb_run(args):
     return finish(EXIT_OK)
 
 
+# (modname, relpath) for every sibling script a verb delegates to - one table
+# instead of a literal at each _load_sibling call site (and a second hand-kept
+# copy in main()'s pre-argparse passthrough dispatch, below).
+_SIBLINGS = {
+    "up": ("mcuflow_launcher", "launcher/up.py"),
+    "workbench": ("mcuflow_workbench", "workbench/workbench.py"),
+    "ports": ("mcuflow_portviewer", "portviewer/portviewer.py"),
+    "bridge": ("mcuflow_serialbridge", "serialbridge/serialbridge.py"),
+    "debug": ("mcuflow_debugger", "debugger/debugger.py"),
+}
+
+
 def _load_sibling(modname, relpath):
     import importlib.util
 
@@ -709,16 +707,19 @@ def _load_sibling(modname, relpath):
     return mod
 
 
+def _sibling(key):
+    """Load one of _SIBLINGS by its verb name."""
+    return _load_sibling(*_SIBLINGS[key])
+
+
 def verb_up(args):
     """Delegate to the launcher (deliverable #4): open the cage, pass USB."""
-    up = _load_sibling("mcuflow_launcher", "launcher/up.py")
-    return up.main(args.rest)
+    return _sibling("up").main(args.rest)
 
 
 def verb_workbench(args):
     """Delegate to the workbench service (deliverable #9)."""
-    wb = _load_sibling("mcuflow_workbench", "workbench/workbench.py")
-    return wb.main(args.rest)
+    return _sibling("workbench").main(args.rest)
 
 
 def verb_ports(args):
@@ -727,7 +728,7 @@ def verb_ports(args):
     The global --json flag makes this print a structured snapshot (what the VS
     Code extension's Boards tree consumes); it takes precedence over the GUI.
     """
-    pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
+    pv = _sibling("ports")
     if args.json:
         return pv.main(["--json"])
     fwd = (["--list"] if args.list else []) + (["--watch"] if args.watch else [])
@@ -736,13 +737,13 @@ def verb_ports(args):
 
 def verb_bridge(args):
     """Delegate to the RFC2217 serial bridge (share a port over the network)."""
-    sb = _load_sibling("mcuflow_serialbridge", "serialbridge/serialbridge.py")
+    sb = _sibling("bridge")
     return sb.main(["--port", args.port, "--tcp", str(args.tcp)])
 
 
 def verb_debug(args):
     """Delegate to the OpenOCD GDB-server launcher (JTAG/debug)."""
-    dbg = _load_sibling("mcuflow_debugger", "debugger/debugger.py")
+    dbg = _sibling("debug")
     fwd = ["--chip", args.chip] + (["--board", args.board] if args.board else [])
     return dbg.main(fwd)
 
@@ -758,8 +759,7 @@ def _list_serial_ports():
     enumerator must degrade to "no ports", not a traceback.
     """
     try:
-        pv = _load_sibling("mcuflow_portviewer", "portviewer/portviewer.py")
-        ports = [p["device"] for p in pv.list_ports_info()]
+        ports = [p["device"] for p in _sibling("ports").list_ports_info()]
     except Exception:
         ports = []
     if not ports and os.name != "nt":
@@ -782,15 +782,6 @@ def _have_module(name):
 # The tool installs its OWN prerequisites so a fresh machine goes green with one
 # command. Each installer returns (ok, log_line). Nothing here needs the caller
 # to hand-install anything; pip/winget/docker do the work.
-
-# The Python deps the tool needs (declared in pyproject.toml; this map is only
-# for the doctor status display).  import-name -> distribution name.
-_PY_DEPS = {
-    "yaml": "pyyaml",
-    "jsonschema": "jsonschema",
-    "serial": "pyserial",
-    "esptool": "esptool",
-}
 
 # host tool -> winget package id (Windows only).
 _WINGET_IDS = {"usbipd": "dorssel.usbipd-win", "docker": "Docker.DockerDesktop"}
@@ -926,10 +917,15 @@ def _ensure_docker_running(timeout_s=180):
     )
 
 
-def _docker_pull(image):
+def _docker_pull(image, running=None):
+    """running: pass the caller's already-confirmed _docker_running() result
+    (e.g. from _ensure_docker_running) to avoid a second `docker info` spawn;
+    None re-checks."""
     if shutil.which("docker") is None:
         return False, "docker not present; skipping image pull (" + image + ")"
-    if not _docker_running():
+    if running is None:
+        running = _docker_running()
+    if not running:
         return False, (
             "docker engine not running; skipping image pull ("
             + image
@@ -1000,11 +996,12 @@ def _doctor_fix(host_is_windows):
     # 4. Make sure the Docker engine is actually up (Desktop is often installed
     #    but not started), then pull the ESP-IDF cage image so build/flash works
     #    without a host toolchain.
+    running = None
     if shutil.which("docker") is not None:
-        ok, line = _ensure_docker_running()
+        running, line = _ensure_docker_running()
         log.append(line)
     img = _cage_image()
-    ok, line = _docker_pull(img)
+    ok, line = _docker_pull(img, running=running)
     log.append(line)
 
     return log
@@ -1069,18 +1066,13 @@ def _doctor_uninstall(purge, host_is_windows):
     if purge:
         if shutil.which("docker") is not None:
             rc, out, err = _run(["docker", "rmi", img])
-            log.append(
-                "cage image "
-                + img
-                + ": "
-                + (
-                    "removed (~15GB reclaimed)"
-                    if rc == 0
-                    else "not removed (" + (out + err).strip().splitlines()[-1] + ")"
-                    if (out + err).strip()
-                    else "not present"
-                )
-            )
+            if rc == 0:
+                msg = "removed (~15GB reclaimed)"
+            elif (out + err).strip():
+                msg = "not removed (" + (out + err).strip().splitlines()[-1] + ")"
+            else:
+                msg = "not present"
+            log.append("cage image " + img + ": " + msg)
         if host_is_windows and shutil.which("usbipd") is not None:
             rc, out, err = _run(
                 [
@@ -1156,6 +1148,13 @@ def verb_doctor(args):
     # Python deps (incl. esptool) live in the .venv - check there, not just PATH.
     mods = _module_status(["yaml", "jsonschema", "serial", "esptool"])
     ports = _list_serial_ports()
+    # Native ESP-IDF *build* toolchain the cage replaces (esptool flashing is
+    # reported separately via `mods`, above - it's pip-installable, not part of
+    # this trio). Exposed in the JSON envelope as `not_needed` so a GUI can
+    # render "not needed (cage)" from the CLI's own answer instead of hardcoding
+    # a second copy of this rule (see cli.ts's classifyTools).
+    native_build_tools = ("idf.py", "cmake", "ninja")
+    cage_covers_native = bool(tools["docker"])
 
     sat = None
     if getattr(args, "satellite", None):
@@ -1209,8 +1208,10 @@ def verb_doctor(args):
     # not a requirement - say "not needed" rather than "missing" so a green run
     # doesn't look broken. Only call it out as actually needed when there's no
     # cage to fall back on.
-    native_absent_note = "  (not needed - using cage)" if tools["docker"] else "  (not installed)"
-    for t in ("idf.py", "cmake", "ninja"):
+    native_absent_note = (
+        "  (not needed - using cage)" if cage_covers_native else "  (not installed)"
+    )
+    for t in native_build_tools:
         lines.append(
             "    ["
             + ("ok " if tools[t] else "-- ")
@@ -1251,6 +1252,7 @@ def verb_doctor(args):
             "ok": code == EXIT_OK,
             "exit_code": code,
             "tools": tools,
+            "not_needed": list(native_build_tools) if cage_covers_native else [],
             "modules": mods,
             "ports": ports,
             "satellite": sat,
@@ -1274,7 +1276,9 @@ def verb_env(args):
             ["x unknown env action: " + str(args.action)],
         )
     tools = ["idf.py", "esptool.py", "esptool", "pytest", "python3", "git", "cmake", "ninja"]
-    found = {t: shutil.which(t) for t in tools}
+    # venv-aware like doctor's own check, so the two commands can't disagree
+    # about a console script (e.g. pytest) that only exists in the .venv.
+    found = {t: _which_venv_aware(t) for t in tools}
     ok = bool(found["idf.py"])
     lines = ["Toolchain check:"]
     for t in tools:
@@ -1436,17 +1440,15 @@ def main(argv=None):
     # Skip any leading global flags first (derived from the parser, so the set
     # can't drift) so this also fires for `mcuflow --sim up ...`; argparse's
     # REMAINDER would otherwise drop the leading passthrough option (bpo-17050).
-    passthrough = {
-        "up": ("mcuflow_launcher", "launcher/up.py"),
-        "workbench": ("mcuflow_workbench", "workbench/workbench.py"),
-    }
+    # Only "up"/"workbench" need this (their own subflags must pass through
+    # untouched); the rest of _SIBLINGS goes through normal argparse subparsers.
+    passthrough_keys = ("up", "workbench")
     globals_ = _global_flag_strings(parser)
     i = 0
     while i < len(argv) and argv[i] in globals_:
         i += 1
-    if i < len(argv) and argv[i] in passthrough:
-        mod, rel = passthrough[argv[i]]
-        return _load_sibling(mod, rel).main(argv[i + 1 :])
+    if i < len(argv) and argv[i] in passthrough_keys:
+        return _sibling(argv[i]).main(argv[i + 1 :])
     args = parser.parse_args(argv)
     if not hasattr(args, "sim"):
         args.sim = False

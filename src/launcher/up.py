@@ -299,7 +299,11 @@ def container_state(cfg, runner):
 
 
 def cmd_up(args, cfg, host_os, runner):
-    if host_os != "windows" and not have("docker") and not args.dry_run:
+    # Every platform gets the friendly exit-127 here (Windows included -
+    # _augment_path has already looked in Docker Desktop's install dir, so a
+    # miss really means docker is absent, and `docker run` would otherwise
+    # die with a raw FileNotFoundError traceback).
+    if not have("docker") and not args.dry_run:
         print("x docker not found. Run `mcuflow up doctor`.", file=sys.stderr)
         return EXIT_NOTOOL
 

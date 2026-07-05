@@ -129,6 +129,8 @@ All notable changes are documented here. The format follows
 - `doctor`'s port listing never crashes: a missing sibling module
   (non-editable install) or a failing enumerator degrades to "no ports"
   instead of a traceback — doctor is what users run when things are broken.
+- Launcher: the "docker not found" guard now applies on Windows too, replacing
+  a raw `FileNotFoundError` traceback with the friendly exit-127 message.
 
 ### Changed
 - VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a

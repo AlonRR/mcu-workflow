@@ -109,6 +109,19 @@ All notable changes are documented here. The format follows
   lock — iterating while the UDP-listener/MQTT threads append raised
   intermittent `RuntimeError("deque mutated during iteration")` exactly when
   log traffic was heaviest.
+- sim HIL no longer fails every non-WiFi project: the AP/join steps are gated
+  on `wifi` in `test.needs` (case-insensitively, since `board.yml` is loaded
+  here with no schema check; a serial-only board passes on its boot gate), a
+  failed `ap_start` skips the join instead of waiting out its timeout, and the
+  AP teardown in `finally` is attempted whenever wifi was wanted at all rather
+  than gated on a successfully-*read* `ap_start` reply — a satellite can raise
+  the AP and then have the response to that call time out, which would
+  otherwise skip teardown and leave the test AP broadcasting.
+- The HIL HTTP helper treats every workbench-call failure — non-2xx replies
+  (e.g. 503 "no satellite backend") *and* connectivity failures (unreachable
+  host, timeout, connection refused) — as a normal failed result instead of a
+  raised exception, so `hil` always produces its structured per-step report
+  instead of crashing.
 
 ### Changed
 - VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a

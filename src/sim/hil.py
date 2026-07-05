@@ -27,6 +27,7 @@ import os as _os
 import sys as _sys
 import threading
 import time
+import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -144,8 +145,29 @@ def _http(base, path, body=None):
     data = json.dumps(body).encode() if body is not None else None
     method = "POST" if body is not None else "GET"
     req = urllib.request.Request(base + path, data=data, method=method)
-    with urllib.request.urlopen(req, timeout=5) as r:
-        return json.loads(r.read().decode())
+    # A token-protected workbench (--token / WORKBENCH_TOKEN) accepts the same
+    # secret from the environment here - no extra CLI plumbing needed.
+    token = _os.environ.get("WORKBENCH_TOKEN")
+    if token:
+        req.add_header("Authorization", "Bearer " + token)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.loads(r.read().decode())
+    except urllib.error.HTTPError as e:
+        # Non-2xx replies (e.g. 503 "no satellite backend") still carry the
+        # JSON error envelope; return it as a normal failed result so the run
+        # produces its structured report instead of crashing mid-scenario.
+        try:
+            return json.loads(e.read().decode())
+        except Exception:
+            return {"ok": False, "error": "HTTP " + str(e.code) + " on " + path}
+    except (urllib.error.URLError, OSError) as e:
+        # No HTTP response at all (workbench unreachable, connection refused,
+        # DNS failure, read timeout) - same contract as the HTTPError branch:
+        # a failed result, never a raised exception, so run_hil always gets to
+        # produce its structured per-step report.
+        reason = getattr(e, "reason", e)
+        return {"ok": False, "error": "workbench unreachable: " + str(reason)}
 
 
 def run_hil(
@@ -168,6 +190,13 @@ def run_hil(
     board = _load_board(board_path)
     if boot_gpio is None:
         boot_gpio = (board.get("rig") or {}).get("dut_boot_gpio")
+    # Only assert what the board contract asks for: a serial-only project has
+    # no wifi in test.needs, so the AP/join steps are skipped, not failed.
+    # board_path is loaded straight from yaml here (no schema check), so
+    # normalize case rather than requiring the exact casing `mcuflow validate`
+    # would enforce.
+    needs = [str(n).strip().lower() for n in ((board.get("test") or {}).get("needs") or [])]
+    wifi_wanted = "wifi" in needs
     steps = []
     srv = None
     dut = None
@@ -197,11 +226,12 @@ def run_hil(
         workbench_base = "http://127.0.0.1:" + str(port)
 
     try:
-        # Precondition: the workbench must advertise wifi (a satellite is present).
+        # Precondition: when the board needs wifi, the workbench must advertise
+        # it (a satellite is present). Otherwise reachability alone is enough.
         caps = _http(workbench_base, "/api/capabilities").get("capabilities", {})
         record(
             "workbench_ready",
-            caps.get("wifi", False),
+            caps.get("wifi", False) if wifi_wanted else True,
             "capabilities: " + ",".join(k for k, v in caps.items() if v),
         )
 
@@ -224,15 +254,19 @@ def run_hil(
             + ("found" if boot_ok else "MISSING"),
         )
 
-        # 2. raise the AP through the workbench HTTP API
-        r = _http(workbench_base, "/api/wifi/ap_start", {"ssid": ssid, "password": password})
-        record("ap_start", r.get("ok"), "satellite AP -> " + json.dumps(r))
+        if wifi_wanted:
+            # 2. raise the AP through the workbench HTTP API
+            r = _http(workbench_base, "/api/wifi/ap_start", {"ssid": ssid, "password": password})
+            record("ap_start", r.get("ok"), "satellite AP -> " + json.dumps(r))
 
-        # 3. DUT joins
-        # Read back the AP the satellite is actually broadcasting.
-        ap = {"ssid": ssid, "password": password, "ip": r.get("ip", "192.168.4.1")}
-        joined, why = dut.provision(ap)
-        record("test_wifi_provision", joined, why)
+            # 3. DUT joins (only meaningful if the AP actually came up).
+            if r.get("ok"):
+                # Read back the AP the satellite is actually broadcasting.
+                ap = {"ssid": ssid, "password": password, "ip": r.get("ip", "192.168.4.1")}
+                joined, why = dut.provision(ap)
+                record("test_wifi_provision", joined, why)
+            else:
+                record("test_wifi_provision", False, "skipped: satellite AP failed to start")
 
         # 4. stimulus: pulse the DUT BOOT gpio via the workbench
         if boot_gpio is not None:
@@ -241,10 +275,19 @@ def run_hil(
             record(
                 "gpio_stimulus", a.get("ok") and b.get("ok"), "toggled BOOT gpio " + str(boot_gpio)
             )
-
-        # teardown
-        _http(workbench_base, "/api/wifi/ap_stop", {})
     finally:
+        # Teardown runs even when a step blew up mid-scenario, and is attempted
+        # whenever wifi was wanted at all - not gated on a successfully-parsed
+        # ap_start reply, since the satellite can raise the AP and then have
+        # the *response* to that call get lost (timeout/dropped connection);
+        # in that race a "did it start" flag would still say no and skip
+        # teardown, leaking the test AP into every later run on the rig.
+        # ap_stop on a satellite with no AP running is a harmless no-op.
+        if wifi_wanted:
+            try:
+                _http(workbench_base, "/api/wifi/ap_stop", {})
+            except Exception:
+                pass
         if dut is not None and hasattr(dut, "close"):
             dut.close()  # release the real DUT serial port
         if srv is not None:

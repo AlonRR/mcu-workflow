@@ -309,9 +309,10 @@ def run_gui(watch=False, poll_ms=1000):
 
     def refresh(force=False):
         cur = list_ports_info()
-        for ev in diff_ports(state["ports"], cur):
+        events = diff_ports(state["ports"], cur)
+        for ev in events:
             say(ev)
-        if force and not diff_ports(state["ports"], cur):
+        if force and not events:
             say("refreshed - no change")
         state["ports"] = cur
         render(cur)

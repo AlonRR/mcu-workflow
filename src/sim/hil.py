@@ -29,7 +29,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from http.server import ThreadingHTTPServer
 
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 from sim.dut import SimDUT
@@ -216,14 +215,7 @@ def run_hil(
         )
         wb = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(wb)
-        sat, info = wb.open_satellite(satellite)
-        wb.Handler.satellite = sat
-        wb.Handler.sat_info = info
-        wb.Handler.caps = wb.detect_capabilities([], sat)
-        srv = ThreadingHTTPServer(("127.0.0.1", 0), wb.Handler)
-        port = srv.server_address[1]
-        threading.Thread(target=srv.serve_forever, daemon=True).start()
-        workbench_base = "http://127.0.0.1:" + str(port)
+        workbench_base, srv = wb.serve_inprocess(satellite)
 
     try:
         # Precondition: when the board needs wifi, the workbench must advertise

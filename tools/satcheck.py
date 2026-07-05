@@ -18,8 +18,6 @@ import argparse
 import importlib.util
 import json
 import sys
-import threading
-from http.server import ThreadingHTTPServer
 from pathlib import Path
 from urllib.request import Request, urlopen
 
@@ -29,10 +27,10 @@ wb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(wb)
 
 
-def call(port, path, data=None, timeout=40):
+def call(base_url, path, data=None, timeout=40):
     body = json.dumps(data).encode() if data is not None else None
     req = Request(
-        f"http://127.0.0.1:{port}{path}",
+        base_url + path,
         data=body,
         method="POST" if data is not None else "GET",
         headers={"Content-Type": "application/json"},
@@ -52,27 +50,25 @@ def main():
     )
     a = ap.parse_args()
 
-    sat, info = wb.open_satellite(a.satellite)
-    wb.Handler.satellite = sat
-    wb.Handler.sat_info = info
-    wb.Handler.caps = wb.detect_capabilities([], sat)
-    srv = ThreadingHTTPServer(("127.0.0.1", 0), wb.Handler)
-    port = srv.server_address[1]
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    print(f"satellite backend: {info['backend']}  ({a.satellite})")
+    base_url, srv = wb.serve_inprocess(a.satellite)
+    print(f"satellite backend: {wb.Handler.sat_info['backend']}  ({a.satellite})")
     try:
         if a.check == "ping":
-            print("ping:", call(port, "/api/satellite/ping", {}))
+            print("ping:", call(base_url, "/api/satellite/ping", {}))
         elif a.check == "caps":
-            print("capabilities:", json.dumps(call(port, "/api/capabilities"), indent=2))
+            print("capabilities:", json.dumps(call(base_url, "/api/capabilities"), indent=2))
         elif a.check == "wifi":
-            print("wifi scan:", call(port, "/api/wifi/scan", {}))
+            print("wifi scan:", call(base_url, "/api/wifi/scan", {}))
         elif a.check == "siggen":
-            print("start:", call(port, "/api/siggen/start", {"pin": 4, "freq": 2000, "duty": 25}))
-            print("stop :", call(port, "/api/siggen/stop", {}))
+            print(
+                "start:", call(base_url, "/api/siggen/start", {"pin": 4, "freq": 2000, "duty": 25})
+            )
+            print("stop :", call(base_url, "/api/siggen/stop", {}))
         elif a.check == "ble":
             print("scanning ~5s (this is the command that may reset the board)...")
-            print("ble scan:", json.dumps(call(port, "/api/ble/scan", {"timeout": 5}), indent=2))
+            print(
+                "ble scan:", json.dumps(call(base_url, "/api/ble/scan", {"timeout": 5}), indent=2)
+            )
     finally:
         srv.shutdown()
     return 0

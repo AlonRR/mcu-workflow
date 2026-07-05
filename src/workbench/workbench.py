@@ -151,14 +151,12 @@ def detect_capabilities(enabled_extra, satellite):
 
 def list_serial():
     """Discover serial ports cross-platform (Windows COM* and POSIX /dev/tty*)."""
-    if os.name == "nt":
-        try:
-            from serial.tools import list_ports  # pyserial
+    from portviewer.portviewer import list_ports_info  # one source of truth
 
-            return sorted(p.device for p in list_ports.comports())
-        except Exception:
-            return []
-    return sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    ports = [p["device"] for p in list_ports_info()]
+    if not ports and os.name != "nt":
+        ports = sorted(glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*"))
+    return ports
 
 
 def discover_slots(host):
@@ -421,6 +419,22 @@ class Handler(BaseHTTPRequestHandler):
             )
         else:
             self._send({"ok": False, "error": "not found: " + p}, code=404)
+
+
+def serve_inprocess(satellite_spec, enabled_extra=None):
+    """Stand up a workbench bound to `satellite_spec` ('sim' or a serial port)
+    on an ephemeral loopback port, in a daemon thread - no subprocess, nothing
+    to Ctrl+C. Returns (base_url, srv); call srv.shutdown() when done. Shared
+    by callers that want a throwaway in-process workbench (sim/hil.py,
+    tools/satcheck.py) instead of each re-deriving this wiring."""
+    sat, info = open_satellite(satellite_spec)
+    Handler.satellite = sat
+    Handler.sat_info = info
+    Handler.caps = detect_capabilities(enabled_extra or [], sat)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return "http://127.0.0.1:" + str(port), srv
 
 
 def main(argv=None):

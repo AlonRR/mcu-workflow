@@ -276,11 +276,45 @@ The target-agnostic core is the hinge. `board.yml` keeps a `platform:` field; th
 
 Phase 0 (design assistant): the Stage 0 flow — requirements → prebuilt-board/module selection → buyable BOM with links → wiring guide → power budget — plus the build123d enclosure generator. These are independent of the firmware loop and immediately useful to a novice, so they can ship first. Phase 1 (ESP32 happy path): the project template, `mcuflow env up` for one-command virtual-environment provisioning (pinned EIM/ESP-IDF + venv), the **launcher (`mcuflow up` CLI plus a thin GUI)** that opens the containerized cage, passes the USB board through (usbipd→WSL2 on Windows), and seats the agent inside (Claude Code by default, agent-agnostic), and a `build`/`flash`/`monitor` wrapper that produces structured output; manual `board.yml`. Phase 2 (testing): pytest-embedded HIL skeleton, QEMU gate, and a single self-hosted runner with board detection. Phase 3 (the skill + autonomous agent): integrate both Espressif MCP servers, ship the orchestration skill, and stand up the sandboxed agent-ready environment (containerized, permission-bypassed inside the cage, hardware interfaces passed through) so an agent can run the loop unattended; add spec-to-scaffold generation driven by the Docs server. Phase 4 (the networked workbench): stand up the host-agnostic instrument (§9) on whatever host is handy — Pi, mini-PC, or the dev laptop — with the portable core (HTTP/RFC2217 serial, auto-started GDB, zero-config slots) plus a capability-advertisement endpoint, and add the networked backend to the `Flasher`/`TestRunner` interface. Phase 5 (wireless & protocol testing): build and flash the **ESP32 satellite firmware** (Layer 0) as the default radio/GPIO backend, then the WiFi/BLE/MQTT/UDP-log/OTA instruments and their test fixtures and skills on top of it, plus GPIO stimulus and auto-recovery; onboard/dongle backends added as fallbacks. Phase 6 (scale & generalize): multi-DUT and board-farm CI, human-in-the-loop and the live dashboard, then the second platform adapter to prove the abstraction. Each phase ends with a working, demoable loop.
 
+### 12.1 Tracked: expose `mcuflow` itself as an MCP server
+
+**Status: planned, not started (marked 22 Jul 2026).** Promoted here from the conditional aside in
+§13 ("if the agent later needs first-class build/flash as tool-calls…") because it is now a wanted
+deliverable rather than a contingency. Lands with Phase 3, alongside the orchestration skill.
+
+**What:** a thin MCP shim over the existing CLI contract, exposing the verbs an agent actually
+drives — `validate scaffold build flash monitor test hil run ports doctor` — as tool-calls.
+
+**Why it is nearly free architecturally:** §13 already locks the CLI as the *single canonical
+execution path*, defined by a stable contract (JSON in/out, documented exit codes) rather than by
+its implementation language. So the shim is a **transport, not a reimplementation** — it adds no
+second path to the toolchain and therefore cannot drift from CI, scripts, or a human at a prompt.
+This is the same reason Espressif's Tools MCP server was declined as a foundation.
+
+**Why it is worth doing at all — the niche is empty.** A survey of the MCP ecosystem (22 Jul 2026)
+found that essentially every embedded MCP project runs the server *on the microcontroller*
+(JSON-RPC over WebSocket/HTTP, exposing GPIO and sensors to an LLM — Espressif documents this
+pattern in ESP-IoT-Solution). Nothing found drives the **toolchain**: no build, flash, monitor,
+board-detect, or HIL-run tool-calls. That is the half this project already implements.
+
+**Constraints inherited from the rest of the design:**
+- Keep it **platform-agnostic** — the shim must call through `adapters.get_adapter(meta.platform)`,
+  never inline `idf.py`/`esptool`. It must not become a new place ESP assumptions accumulate.
+- **Complements, does not replace, Espressif's servers.** Their Docs MCP stays the grounding source
+  for hardware/API decisions; their Tools MCP stays optional.
+- Structured output is a prerequisite, not extra work — the `build`/`flash`/`monitor` wrapper
+  already owes "structured output" from Phase 1.
+- The **cage boundary still applies** (§6–7): an MCP client must not become a way around it.
+
+**Open sub-question:** whether the shim ships in-repo as a `mcuflow mcp` subcommand (one artifact,
+one version) or as a separate package. In-repo is the default assumption — it keeps the contract and
+its transport versioned together.
+
 ## 13. Open decisions
 
 The pre–Phase 1 decisions are now resolved; the items below record what was decided and why.
 
-*Resolved:* the **CLI is the single canonical execution path** for the whole pipeline (build, flash, test, env, enclosure, instruments) — CI, scripts, and the agent all go through it for identical behavior. Espressif's **Docs MCP server is adopted** to ground the agent's hardware/API decisions; its **Tools MCP server is optional/complementary** (a convenience for ad-hoc agent build/flash), not the foundation, because it is agent-only (no headless/CI path), covers only a slice (build/flash/clean/target), and a second path to `idf.py` would risk drift. If the agent later needs first-class build/flash as tool-calls, the move is to wrap our own CLI in a thin MCP shim so there is still exactly one behavior underneath.
+*Resolved:* the **CLI is the single canonical execution path** for the whole pipeline (build, flash, test, env, enclosure, instruments) — CI, scripts, and the agent all go through it for identical behavior. Espressif's **Docs MCP server is adopted** to ground the agent's hardware/API decisions; its **Tools MCP server is optional/complementary** (a convenience for ad-hoc agent build/flash), not the foundation, because it is agent-only (no headless/CI path), covers only a slice (build/flash/clean/target), and a second path to `idf.py` would risk drift. If the agent later needs first-class build/flash as tool-calls, the move is to wrap our own CLI in a thin MCP shim so there is still exactly one behavior underneath — **this is no longer hypothetical; it is now tracked as a planned deliverable in §12.1.**
 
 *Resolved:* the environment defaults to the **containerized "cage"** even on the developer's own desktop (not native), opened by a one-step launcher (`mcuflow up` / GUI) that brings up the container, mounts the project, passes the USB board through (via `usbipd`→WSL2 on Windows), and starts or resumes the agent inside — bypassed-permissions-inside, enforced-boundary (Sections 6–7). A native install stays available as a manual escape hatch; a networked workbench removes USB passthrough entirely when used.
 

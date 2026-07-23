@@ -29,9 +29,15 @@ dependencies = [
 # ipykernel: VS Code Jupyter Interactive Window / notebooks on the project venv.
 dev = [
     "pytest",
-    "ruff", 
-    "pre-commit", 
+    "ruff",
+    "pre-commit",
     "ipykernel",
+]
+# mcp: the `mcuflow mcp` server (architecture §12.1). Optional so the base CLI
+# stays dependency-light - only someone running the server pulls the SDK.
+# Install with: uv pip install -e ".[mcp]"
+mcp = [
+    "mcp>=1.12",
 ]
 
 [project.urls]

@@ -26,6 +26,11 @@ CASES = [
     ("validate_broken_is_nonzero", ["validate", BROKEN], 1),
     ("sim_build", ["--sim", "build"], 0),
     ("sim_flash", ["--sim", "flash", "--port", "COM5"], 0),
+    # bounded monitor capture (the mode the MCP server / CI use): its input
+    # guards are hardware-free - no --port is a usage error, an unopenable port
+    # is a verb failure.
+    ("monitor_capture_needs_port", ["monitor", "--seconds", "1"], 2),
+    ("monitor_capture_bad_port", ["monitor", "--seconds", "1", "--port", "NOPE99"], 1),
     ("hil_c3_sim", ["hil", C3], 0),
     ("run_c3_sim", ["--sim", "run", C3, "-o", TMP], 0),
     (

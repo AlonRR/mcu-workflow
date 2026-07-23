@@ -38,6 +38,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -397,7 +398,112 @@ def verb_flash(args):
     )
 
 
+def _monitor_capture(args):
+    """Bounded, non-interactive serial capture: open --port, read for --seconds
+    (or until --until appears), emit the transcript in the standard envelope.
+
+    This is the mode CI and the MCP server use - a request/response snapshot of
+    the serial console, in contrast to the interactive session below. The read
+    loop mirrors the HIL SerialDUT's (src/sim/hil.py) so behaviour is identical."""
+    port = getattr(args, "port", None)
+    if not port:
+        return emit(
+            {
+                "verb": "monitor",
+                "ok": False,
+                "exit_code": EXIT_USAGE,
+                "detail": "--seconds capture needs --port (no serial port given)",
+            },
+            args.json,
+            ["x --seconds capture needs --port"],
+        )
+    try:
+        import serial  # pyserial
+    except Exception as e:
+        return emit(
+            {
+                "verb": "monitor",
+                "ok": False,
+                "exit_code": EXIT_NOTOOL,
+                "missing_tool": "pyserial",
+                "detail": "pyserial not available: " + str(e),
+            },
+            args.json,
+            ["x pyserial not available: " + str(e)],
+        )
+    seconds = float(args.seconds)
+    until = getattr(args, "until", None)
+    baud = getattr(args, "baud", 115200)
+    try:
+        ser = serial.serial_for_url(port, baudrate=baud, timeout=0.2)
+    except Exception as e:
+        return emit(
+            {
+                "verb": "monitor",
+                "ok": False,
+                "exit_code": EXIT_FAIL,
+                "port": port,
+                "detail": "could not open " + str(port) + ": " + str(e),
+            },
+            args.json,
+            ["x could not open " + str(port) + ": " + str(e)],
+        )
+    lines = []
+    buf = ""
+    matched = False
+    deadline = time.monotonic() + seconds
+    try:
+        while time.monotonic() < deadline:
+            try:
+                chunk = ser.read(256)
+            except Exception:
+                break
+            if not chunk:
+                continue
+            buf += chunk.decode("utf-8", "replace")
+            while "\n" in buf:
+                line, buf = buf.split("\n", 1)
+                lines.append(line.rstrip("\r"))
+            if until and any(until in ln for ln in lines):
+                matched = True
+                break
+    finally:
+        if buf.strip():
+            lines.append(buf.rstrip("\r"))  # trailing partial line
+        try:
+            ser.close()
+        except Exception:
+            pass
+    # With --until the run only passes if the string showed up; a plain timed
+    # capture always succeeds (it returns whatever the console emitted).
+    ok = matched if until else True
+    result = {
+        "verb": "monitor",
+        "ok": ok,
+        "exit_code": EXIT_OK if ok else EXIT_FAIL,
+        "port": port,
+        "seconds": seconds,
+        "lines": lines,
+        "detail": "\n".join(lines),
+    }
+    human = list(lines)
+    if until:
+        result["until"] = until
+        result["matched"] = matched
+        human += [
+            "",
+            "matched '" + until + "'"
+            if matched
+            else "did not see '" + until + "' within " + str(seconds) + "s",
+        ]
+    return emit(result, args.json, human)
+
+
 def verb_monitor(args):
+    # --seconds switches to a bounded, capturing read (CI / MCP); without it the
+    # monitor is the usual interactive session driven by the platform adapter.
+    if getattr(args, "seconds", None) is not None:
+        return _monitor_capture(args)
     platform = getattr(args, "platform", None) or "esp32"
     cmd = _adapter(platform).monitor_cmd(str(args.path), getattr(args, "port", None))
     return _run_verb("monitor", cmd, args, interactive=True)
@@ -695,6 +801,7 @@ _SIBLINGS = {
     "ports": ("mcuflow_portviewer", "portviewer/portviewer.py"),
     "bridge": ("mcuflow_serialbridge", "serialbridge/serialbridge.py"),
     "debug": ("mcuflow_debugger", "debugger/debugger.py"),
+    "mcp": ("mcuflow_mcpserver", "mcpserver/mcpserver.py"),
 }
 
 
@@ -720,6 +827,12 @@ def verb_up(args):
 def verb_workbench(args):
     """Delegate to the workbench service (deliverable #9)."""
     return _sibling("workbench").main(args.rest)
+
+
+def verb_mcp(args):
+    """Delegate to the MCP server (architecture §12.1): expose the CLI verbs as
+    MCP tools over stdio. Needs the optional `mcp` extra (`.[mcp]`)."""
+    return _sibling("mcp").main(args.rest)
 
 
 def verb_ports(args):
@@ -902,8 +1015,6 @@ def _ensure_docker_running(timeout_s=180):
             return False, "docker engine: Docker Desktop.exe not found"
     else:
         _run(["systemctl", "start", "docker"])
-    import time
-
     waited = 0
     while waited < timeout_s:
         if _docker_running():
@@ -1336,6 +1447,16 @@ def build_parser():
     m.add_argument("--path", type=Path, default=Path("."))
     m.add_argument("--port", default=None)
     m.add_argument("--platform", default=None, help="toolchain adapter (default esp32)")
+    m.add_argument(
+        "--seconds",
+        type=float,
+        default=None,
+        help="capture serial for N seconds (non-interactive) instead of a live session",
+    )
+    m.add_argument(
+        "--until", default=None, help="with --seconds: stop early when this text appears"
+    )
+    m.add_argument("--baud", type=int, default=115200, help="baud for a --seconds capture")
     m.set_defaults(func=verb_monitor)
 
     t = sub.add_parser("test", help="pytest-embedded HIL run (or --sim)")
@@ -1383,6 +1504,12 @@ def build_parser():
     dbg.add_argument("--chip", default="esp32c3", help="target chip (default esp32c3)")
     dbg.add_argument("--board", default=None, help="OpenOCD board config (overrides --chip)")
     dbg.set_defaults(func=verb_debug)
+
+    mc = sub.add_parser(
+        "mcp", help="run the MCP server (expose verbs as tools; needs the mcp extra)"
+    )
+    mc.add_argument("rest", nargs=argparse.REMAINDER, help="args passed through to the MCP server")
+    mc.set_defaults(func=verb_mcp)
 
     d = sub.add_parser("doctor", help="preflight: deps, toolchain, ports, satellite")
     d.add_argument("--satellite", default=None, help="ping a satellite: 'sim' or a serial port")
@@ -1440,9 +1567,9 @@ def main(argv=None):
     # Skip any leading global flags first (derived from the parser, so the set
     # can't drift) so this also fires for `mcuflow --sim up ...`; argparse's
     # REMAINDER would otherwise drop the leading passthrough option (bpo-17050).
-    # Only "up"/"workbench" need this (their own subflags must pass through
+    # Only "up"/"workbench"/"mcp" need this (their own subflags must pass through
     # untouched); the rest of _SIBLINGS goes through normal argparse subparsers.
-    passthrough_keys = ("up", "workbench")
+    passthrough_keys = ("up", "workbench", "mcp")
     globals_ = _global_flag_strings(parser)
     i = 0
     while i < len(argv) and argv[i] in globals_:

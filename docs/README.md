@@ -11,6 +11,8 @@ under [`../agents/`](../agents/).)
   satellite/workbench test rig, and how the pieces fit.
 - **[runbook-c3.md](runbook-c3.md)** — step-by-step bring-up of two ESP32-C3
   Super Minis, end to end. Runs in simulation today; one flag flips to real boards.
+- **[mcp-server.md](mcp-server.md)** — plan for exposing `mcuflow` itself as an
+  MCP server (a `mcuflow mcp` subcommand), implementing architecture §12.1.
 
 ## Per-module references
 
@@ -28,6 +30,7 @@ Most modules under [`../src/`](../src/) (and the Stage-0 helpers under
 | port viewer (`mcuflow ports`) | [`../src/portviewer/`](../src/portviewer/) |
 | serial bridge (`mcuflow bridge`, RFC2217) | [`../src/serialbridge/`](../src/serialbridge/) |
 | JTAG debugger (`mcuflow debug`) | [`../src/debugger/`](../src/debugger/) |
+| MCP server (`mcuflow mcp`) | [`../src/mcpserver/`](../src/mcpserver/) |
 | platform adapters | [`../src/adapters/`](../src/adapters/) |
 | Stage-0 design / enclosure | [`../hardware/`](../hardware/) |
 | cage egress proxy | [`../deploy/cage/`](../deploy/cage/) |

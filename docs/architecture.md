@@ -265,8 +265,10 @@ side-effect-free viewer of which board is on which COM port, by USB serial),
 layer), and `mcuflow debug` (the OpenOCD/GDB server, the JTAG layer) — plus a
 **VS Code extension** (`editors/vscode/`) that surfaces the CLI verbs as a
 PlatformIO-style GUI (Home page, project recognition by `board.yml`, activity-bar
-view). The extension reimplements nothing: the CLI stays the single source of
-truth, exactly as the "who orchestrates" split requires.
+view), and **`mcuflow mcp`** (`src/mcpserver/`, §12.1) which re-serves the same
+verbs as MCP tools over stdio. None of these reimplement anything: the CLI stays
+the single source of truth (the MCP shim literally shells out to it), exactly as
+the "who orchestrates" split requires.
 
 ## 11. Extensibility beyond ESP32
 
@@ -278,12 +280,17 @@ Phase 0 (design assistant): the Stage 0 flow — requirements → prebuilt-board
 
 ### 12.1 Tracked: expose `mcuflow` itself as an MCP server
 
-**Status: planned, not started (marked 22 Jul 2026).** Promoted here from the conditional aside in
-§13 ("if the agent later needs first-class build/flash as tool-calls…") because it is now a wanted
-deliverable rather than a contingency. Lands with Phase 3, alongside the orchestration skill.
+**Status: built (23 Jul 2026).** Shipped as `mcuflow mcp` (`src/mcpserver/`) with the design and
+scope recorded in [mcp-server.md](mcp-server.md). Promoted here from the conditional aside in
+§13 ("if the agent later needs first-class build/flash as tool-calls…") because it was a wanted
+deliverable rather than a contingency; it lands with Phase 3, alongside the orchestration skill.
+The open sub-question below is resolved in favour of **in-repo** (a `mcuflow mcp` subcommand).
 
 **What:** a thin MCP shim over the existing CLI contract, exposing the verbs an agent actually
-drives — `validate scaffold build flash monitor test hil run ports doctor` — as tool-calls.
+drives — `validate scaffold build flash monitor test hil run ports doctor` (+ `env doctor`) — as
+tool-calls over stdio. Every tool shells out to `mcuflow <verb> --json` and the tool input-schemas
+are derived from the CLI's own argparse parser, so the shim cannot drift from the CLI. The MCP SDK
+is an optional extra (`.[mcp]`), keeping the base CLI dependency-light.
 
 **Why it is nearly free architecturally:** §13 already locks the CLI as the *single canonical
 execution path*, defined by a stable contract (JSON in/out, documented exit codes) rather than by
@@ -306,9 +313,12 @@ board-detect, or HIL-run tool-calls. That is the half this project already imple
   already owes "structured output" from Phase 1.
 - The **cage boundary still applies** (§6–7): an MCP client must not become a way around it.
 
-**Open sub-question:** whether the shim ships in-repo as a `mcuflow mcp` subcommand (one artifact,
-one version) or as a separate package. In-repo is the default assumption — it keeps the contract and
-its transport versioned together.
+**Resolved sub-question:** the shim ships **in-repo** as a `mcuflow mcp` subcommand (one artifact,
+one version) rather than a separate package — it keeps the contract and its transport versioned
+together. Two v1 scope choices worth recording: `monitor` is exposed as a *bounded* serial capture
+(`monitor --seconds`; the interactive session can't be a synchronous tool-call), and `doctor`'s
+mutating flags (`--fix`/`--uninstall`/`--purge`) are withheld from the tool surface. Transport is
+stdio-only for v1; HTTP/SSE is left as an additive change (see [mcp-server.md](mcp-server.md)).
 
 ## 13. Open decisions
 

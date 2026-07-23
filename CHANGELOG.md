@@ -7,6 +7,16 @@ All notable changes are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `mcuflow mcp`: an MCP server (architecture §12.1) that exposes the CLI verbs
+  (`validate scaffold build flash monitor test hil run doctor ports` + `env
+  doctor`) as tool-calls over stdio. It is a transport, not a reimplementation —
+  every tool shells out to `mcuflow <verb> --json`, and the tool input-schemas
+  are derived from the CLI's own argparse parser, so the two can't drift. Needs
+  the optional `mcp` extra (`uv pip install -e ".[mcp]"`); the base CLI stays
+  dependency-light. See [docs/mcp-server.md](docs/mcp-server.md).
+- `mcuflow monitor --seconds N [--until STR]`: a bounded, non-interactive serial
+  capture that emits the transcript as a JSON envelope (what the MCP `monitor`
+  tool and CI use), alongside the existing interactive session.
 - One-line bootstrap installers (`install.sh`, `install.ps1`): install uv, a
   Python, the repo, and all prerequisites, and put `mcuflow` on PATH — nothing
   needs to pre-exist.

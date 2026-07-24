@@ -6,6 +6,8 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-24
+
 ### Added
 - `mcuflow mcp`: an MCP server (architecture §12.1) that exposes the CLI verbs
   (`validate scaffold build flash monitor test hil run doctor ports` + `env
@@ -78,6 +80,9 @@ All notable changes are documented here. The format follows
 - The launcher requires the in-cage agent to be defined before entry (cage.yaml
   `agent:` or `--agent`); no implicit Claude default.
 - Workbench default port moved off the collision-prone `8080` to `6283`.
+- VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a
+  single activation or refresh no longer spawns the CLI several times over (the
+  tree and Home page previously each ran both); an explicit Refresh clears it.
 
 ### Fixed
 - Launcher arguments: a flat parser now accepts global flags on either side of
@@ -174,11 +179,6 @@ All notable changes are documented here. The format follows
 - Fixed two literal NUL bytes that had corrupted `cli.ts`'s cache-key line
   (`${r.cwd}\0${r.exec.file}...`), which made grep/file-type tools treat the
   whole file as binary.
-
-### Changed
-- VS Code extension: `doctor`/`ports` reads are briefly cached (1.5 s), so a
-  single activation or refresh no longer spawns the CLI several times over (the
-  tree and Home page previously each ran both); an explicit Refresh clears it.
 
 ### Security
 - The workbench binds `127.0.0.1` by default (was `0.0.0.0`): the HTTP API can

@@ -2,7 +2,7 @@
   "name": "mcuflow",
   "displayName": "MCU Flow",
   "description": "GUI for the mcuflow CLI: build, flash, monitor, and run hardware-in-the-loop tests for ESP32 boards from VS Code.",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "publisher": "mcuflow",
   "license": "MPL-2.0",
   "repository": {

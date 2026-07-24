@@ -12,7 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      # Use the ruff pinned in pyproject's [dev] extra (single source of truth),
+      # not `uvx ruff`'s floating latest - the formatter drifts across releases.
       - name: Lint
-        run: uvx ruff check .
+        run: uv run --extra dev ruff check .
       - name: Format check
-        run: uvx ruff format --check .
+        run: uv run --extra dev ruff format --check .

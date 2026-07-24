@@ -29,7 +29,11 @@ dependencies = [
 # ipykernel: VS Code Jupyter Interactive Window / notebooks on the project venv.
 dev = [
     "pytest",
-    "ruff",
+    # Pinned: ruff's formatter output is not stable across minor releases (0.16
+    # began reformatting code blocks inside Markdown, which would flatten the
+    # intentionally aligned comments in the module READMEs). CI runs this exact
+    # ruff, so `format --check` can't drift on an unrelated ruff release.
+    "ruff==0.15.20",
     "pre-commit",
     "ipykernel",
 ]

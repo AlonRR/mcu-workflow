@@ -247,8 +247,10 @@ def _serve_stdio():
     from mcp.server.lowlevel import Server
     from mcp.server.stdio import stdio_server
 
+    from mcuflow import __version__
+
     tools = build_tools()
-    server = Server("mcuflow")
+    server = Server("mcuflow", version=__version__)
 
     @server.list_tools()
     async def _list_tools():

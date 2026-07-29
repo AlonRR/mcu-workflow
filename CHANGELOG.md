@@ -6,6 +6,13 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- The `mcp` extra is capped at `mcp>=1.12,<2`. The MCP SDK's 2.0 release
+  removed the low-level `Server.list_tools()` / `Server.call_tool()`
+  decorators the server registers through, so a fresh `.[mcp]` install
+  resolved 2.x and `mcuflow mcp` failed at startup with
+  `AttributeError: 'Server' object has no attribute 'list_tools'`.
+
 ## [0.3.0] - 2026-07-24
 
 ### Added

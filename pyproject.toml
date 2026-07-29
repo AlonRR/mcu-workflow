@@ -41,7 +41,13 @@ dev = [
 # stays dependency-light - only someone running the server pulls the SDK.
 # Install with: uv pip install -e ".[mcp]"
 mcp = [
-    "mcp>=1.12",
+    # Capped below 2.0. The SDK's low-level `Server` dropped the
+    # `@server.list_tools()` / `@server.call_tool()` decorators that this shim
+    # registers its handlers with, so on 2.x `mcuflow mcp` dies at startup with
+    # `AttributeError: 'Server' object has no attribute 'list_tools'` - before
+    # serving a single request. Same drift-proofing rationale as the ruff pin
+    # in [dev] above: an unbounded range lets an unrelated release break us.
+    "mcp>=1.12,<2",
 ]
 
 [project.urls]

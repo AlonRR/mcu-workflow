@@ -143,3 +143,7 @@ PlatformIO code.
 [Mozilla Public License 2.0](LICENSE) (MPL-2.0). You may use mcu-workflow in
 open- or closed-source projects; if you modify mcu-workflow's own files and
 distribute them, those changes must remain under MPL-2.0.
+
+---
+
+_Parts of this repository were drafted with the help of an LLM agent; reviewed and verified locally._

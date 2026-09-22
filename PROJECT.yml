@@ -3,6 +3,6 @@ projects:
   - name:     MCU workflow HIL rig
     kind:     build
     state:    parked
-    next:     "unfinished rather than a finished tool - decide what completing it means"
+    next:     "define the remaining scope that would make the rig feature-complete"
     trackers: [docs/runbook-c3.md, examples/board-c3.yml]
     review:   2026-09-20

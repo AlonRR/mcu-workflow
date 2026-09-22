@@ -5,4 +5,4 @@ projects:
     state:    parked
     next:     "define the remaining scope that would make the rig feature-complete"
     trackers: [docs/runbook-c3.md, examples/board-c3.yml]
-    review:   2026-09-20
+    review:   2026-09-22

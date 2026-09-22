@@ -183,8 +183,8 @@ self-installs and runs end to end on real silicon; the codebase is under git
   AP-only changes were already in but weren't the cause). If a join ever flaps,
   check board spacing first. Board identity is by `ping`, never by COM number (the
   C3 native USB re-enumerates and COM⇄busid can swap across reboots).
-- **Boards as last seen:** satellite on COM6 (MAC <redacted-mac>, AP BSSID
-  <redacted-bssid>), DUT on COM9. Keep them ~0.5 m apart.
+- **Boards as last seen:** satellite on COM6, DUT on COM9. Keep them ~0.5 m
+  apart. (Identify a board by `ping`, not by COM number or MAC — both move.)
 
 ## Update — 2026-06-16 (session 4): instruments, tooling, GUI, release prep
 

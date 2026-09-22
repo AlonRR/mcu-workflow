@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/alonrabinow/micro-controller-workflow/board.schema.json",
+  "$id": "https://github.com/AlonRR/mcu-workflow/board.schema.json",
   "title": "board.yml",
   "description": "The single-source-of-truth contract for one microcontroller project/target. Only 'meta' is required; every other section is optional and omitted when unused.",
   "type": "object",

@@ -1,4 +1,4 @@
-# The projects this repo holds. Schema: alon/tasks SCHEMA.md
+# The projects this repo holds, for the author's cross-repo status aggregation.
 projects:
   - name:     MCU workflow HIL rig
     kind:     build

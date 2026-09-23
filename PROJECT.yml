@@ -1,4 +1,6 @@
 # The projects this repo holds, for the author's cross-repo status aggregation.
+# schema version: set by `ledger migrate` or `ledger init` -- do not edit by hand
+schema: 1
 projects:
   - name:     MCU workflow HIL rig
     kind:     build

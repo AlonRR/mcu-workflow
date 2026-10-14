@@ -5,6 +5,6 @@ projects:
   - name:     MCU workflow HIL rig
     kind:     build
     state:    parked
-    next:     "define the remaining scope that would make the rig feature-complete"
+    next:     "add a commission gate that asserts the bench matches board.yml"
     trackers: [docs/runbook-c3.md, examples/board-c3.yml]
-    review:   2026-09-22
+    review:   2026-10-14

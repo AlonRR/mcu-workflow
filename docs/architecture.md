@@ -190,7 +190,7 @@ Reporting captures both the pytest verdict and the raw device serial/JTAG output
 
 ## 9. The networked workbench (hardware as a shared instrument)
 
-A working reference implementation — Andreas Spiess's *Universal Embedded Workbench* — demonstrates a sharper model than "boards bolted to a CI runner," and it is the right target architecture for the physical side. Instead of the agent's machine owning the USB cable, a dedicated host becomes a **networked test instrument**: boards plug into its USB hub, and *every* interaction — flash, serial, debug, WiFi, BLE, GPIO, logs, OTA — is exposed over a single HTTP API on the LAN. The agent, the developer laptop, and CI all talk to the same instrument over the network and never need physical access. This decouples "where the agent runs" from "where the hardware lives," which is exactly what makes an autonomous, sandboxed agent practical: the sandbox reaches hardware through an API call, not a passed-through `/dev` node.
+A working reference implementation — Andreas Spiess's *Embedded-AI-Harness* — demonstrates a sharper model than "boards bolted to a CI runner," and it is the right target architecture for the physical side. Instead of the agent's machine owning the USB cable, a dedicated host becomes a **networked test instrument**: boards plug into its USB hub, and *every* interaction — flash, serial, debug, WiFi, BLE, GPIO, logs, OTA — is exposed over a single HTTP API on the LAN. The agent, the developer laptop, and CI all talk to the same instrument over the network and never need physical access. This decouples "where the agent runs" from "where the hardware lives," which is exactly what makes an autonomous, sandboxed agent practical: the sandbox reaches hardware through an API call, not a passed-through `/dev` node.
 
 **The host must not be a Raspberry Pi specifically.** The reference runs on a Pi, but tying the instrument to one board is a limitation we explicitly design out. The instrument is a **software service** (Python + an HTTP API) plus a **hardware-capability abstraction layer**; the Pi is one host profile among many. Capabilities split into two tiers. The *portable core* — flash (esptool/RFC2217), serial, GDB/OpenOCD, UDP logging, OTA repository, MQTT broker, test API, and the dashboard — is pure software over USB and runs on essentially **any machine that runs Python and has USB**: an x86 mini-PC or NUC, an old laptop, a NAS or Docker host, another SBC (Orange Pi, Radxa/Rock, BeagleBone, Le Potato), or even the developer's own workstation with no separate box at all. The *radio/GPIO instruments* — WiFi AP/STA, BLE, GPIO stimulus, signal generator — are the only parts that need specific hardware, and each is a **pluggable backend** rather than a hard dependency:
 
@@ -233,9 +233,9 @@ The integration consequence for our design: the `Flasher`/`TestRunner` interface
 
 **Layer 2 — CLI / library (`mcuflow`).** A thin tool exposing the six stages as deterministic verbs (`mcuflow spec`, `scaffold`, `build`, `flash`, `test`, `report`) over a target-agnostic core (`Board`, `Toolchain`, `Flasher`, `TestRunner`) with an ESP32 adapter that shells out to `idf.py`/`esptool`/pytest-embedded. It is **defined by its contract, not its language**: every command emits structured JSON with documented exit codes so it composes identically in scripts, CI, and agent tool-calls, and the implementation language stays an internal, swappable detail (Python is the natural starting point; a Go/Rust build can replace or wrap it later without affecting any caller).
 
-**Layer 3 — Skills (the orchestration brain).** Rather than one monolithic skill, follow the reference implementation's pattern of **one focused skill per capability** — build/flash lifecycle (ESP-IDF *and* PlatformIO), test harness, debug, WiFi, BLE, MQTT, serial/UDP logging, OTA integration, signal generator, plus an `fsd-writer` (spec generation) and an `integration` skill (one-shot wiring of a project to the workbench) — coordinated by a thin top-level orchestration skill. Each skill teaches the agent how to drive one slice of the workbench API or toolchain; the orchestrator reads `board.yml`/the FSD, sequences them, and wires in the two Espressif MCP servers (Docs to ground hardware decisions, Tools to execute build/flash/status). The agent's value is judgment and recovery: interpreting a build error against the docs, picking pins, deciding whether a HIL failure is a flake (re-run) or real (report), un-bricking a board via GPIO, and narrating the loop end-to-end. Skills auto-detect whether hardware is on a networked workbench or local USB and adapt.
+**Layer 3 — Skills (the orchestration brain).** Rather than one monolithic skill, follow the reference implementation's pattern of **one focused skill per capability** — build/flash lifecycle (ESP-IDF *and* PlatformIO), test harness, debug, WiFi, BLE, MQTT, serial/UDP logging, OTA integration, signal generator, plus an `integration` skill (one-shot wiring of a project to the workbench) — `fsd-writer` was dropped on 14 Oct 2026 (§13) — coordinated by a thin top-level orchestration skill. Each skill teaches the agent how to drive one slice of the workbench API or toolchain; the orchestrator reads `board.yml`/the FSD, sequences them, and wires in the two Espressif MCP servers (Docs to ground hardware decisions, Tools to execute build/flash/status). The agent's value is judgment and recovery: interpreting a build error against the docs, picking pins, deciding whether a HIL failure is a flake (re-run) or real (report), un-bricking a board via GPIO, and narrating the loop end-to-end. Skills auto-detect whether hardware is on a networked workbench or local USB and adapt.
 
-These layers degrade gracefully: the template works with no skill, the CLI works with no agent, the skills add reasoning on top of both — and an individual skill (e.g. `fsd-writer`, `signal-generator`) is useful even with no workbench present.
+These layers degrade gracefully: the template works with no skill, the CLI works with no agent, the skills add reasoning on top of both — and an individual skill (e.g. `signal-generator`) is useful even with no workbench present.
 
 **Who orchestrates.** Two distinct conductors, per the fifth/sixth design principles. Layer 2 (the CLI) is the **deterministic conductor**: it runs the fixed pipeline in order, reproducibly, headless, with no model — this is what CI and scripted runs use. Layer 3 (Claude + the skills) is the **judgment orchestrator**: it sits above the pipeline, calls the same verbs, and reasons about which to run, in what order, and how to recover when one fails — delegating to per-domain subagents (design, firmware, test) where useful. Claude is therefore the orchestrator for *intelligence*, never the load-bearing sequencer for *mechanics*; the system still runs end-to-end when no model is present, with Claude adding judgment on top rather than being a single point of failure.
 
@@ -254,7 +254,7 @@ The project is deliberately many small, independently-shippable pieces rather th
 | 7 | **Enclosure generator** | Parametric build123d → STL/3MF from `enclosure:` | build123d, OCP CAD Viewer; #1 | 0 | yes |
 | 8 | **ESP32 satellite firmware (Layer 0)** | Companion image: WiFi/BLE/GPIO/signal over USB-serial | the workflow itself (dogfood) | 5 | yes |
 | 9 | **Workbench service** | Host-agnostic HTTP/RFC2217 instrument (serial, GDB, WiFi, BLE, MQTT, GPIO, UDP-log, OTA) | esptool, OpenOCD, pytest-embedded driver; #8 or dongles | 4 | yes |
-| 10 | **Skills (per capability)** | build/flash (IDF+PIO), HIL test, debug, WiFi, BLE, MQTT, logging, OTA, signal-gen, `fsd-writer`, enclosure, integration, + top-level orchestrator | #2 / #9 APIs; Docs+Tools MCP | 3+ | each yes |
+| 10 | **Skills (per capability)** | build/flash (IDF+PIO), HIL test, debug, WiFi, BLE, MQTT, logging, OTA, signal-gen, enclosure, integration, + top-level orchestrator (~~`fsd-writer`~~ dropped, §13) | #2 / #9 APIs; Docs+Tools MCP | 3+ | each yes |
 | 11 | **CI pipeline templates** | GitHub Actions self-hosted; runner-label routing by chip/instrument | #2; runner setup | 2 | yes |
 | 12 | **Platform adapters** | STM32 / RP2040 / Zephyr behind the same core interface | #2 core | 6 | yes |
 
@@ -340,6 +340,27 @@ The pre–Phase 1 decisions are now resolved; the items below record what was de
 
 *Resolved:* the portable radio/GPIO backend standardizes on the **ESP32 satellite** (Section 9), with onboard-radio and USB-dongle backends as fallbacks. The satellite's host link is **USB-serial** — simplest, always available, and self-contained on the bench. The command protocol is kept transport-agnostic so a networked link can be added later for remote placement (range/roaming tests, RF chamber) without redesigning the satellite API; USB-serial remains the default.
 
+*Resolved (14 Oct 2026) — what "feature-complete" means here, and what is deliberately out of scope:*
+the reference implementation has been renamed and has grown from a test bench into a full **method**
+(`/define` → `/harness` → `/commission` → `/build`, gates derived from project state rather than
+declared, four test tiers, and ESP32 test-case libraries). That **narrows** this project's answer
+instead of widening it: **mcu-workflow is the toolchain, not the method.** Feature-complete therefore
+means the two-C3 loop runs end to end on real silicon with three additions, and nothing above that
+line. (a) **Commissioning as its own gate** — a `mcuflow commission` verb that asserts the bench
+matches `board.yml`'s `pins:`/`devices:` *before* any test runs, so that a later failure means the
+code; `doctor` checks the toolchain and deliberately does not cover this. (b) A **real test-case
+library** behind the `hil-test` skill, which today is a descriptor with no cases. (c) The
+**tier-assignment rule** stated explicitly — each check runs at the fastest level that still yields
+real evidence, so a failing host test never reaches a flash. The existing three-level pyramid (§8)
+stays; the reference's fourth "field" tier is out, having no runner here.
+**Out of scope, with reasons:** spec generation — `fsd-writer` is withdrawn from the Layer-3
+inventory (§10) because the reference's `/define` is MIT-licensed and more developed, and a second
+FSD generator would be duplicated effort; and phase-skill orchestration, which is the method's
+business, not the toolchain's. **The bench-as-AP stays ours:** the ESP32 satellite already raises the
+AP and is host-agnostic by design (§9), where the reference couples that role to a Raspberry Pi. The
+one piece worth importing is **fault injection** — drop the AP mid-session, stop the MQTT broker,
+emit malformed payloads — which §9's instrument list does not currently offer.
+
 ## 14. Sources
 
 - [ESP-IDF Releases (GitHub)](https://github.com/espressif/esp-idf/releases) · [Announcing ESP-IDF v6.0](https://developer.espressif.com/blog/2026/03/idf-v6-0-release/) · [ESP-IDF Versions](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/versions.html)
@@ -348,5 +369,5 @@ The pre–Phase 1 decisions are now resolved; the items below record what was de
 - [IDF Component Manager](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/tools/idf-component-manager.html)
 - [ESP-IDF Tests with Pytest (HIL guide)](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/contribute/esp-idf-tests-with-pytest.html)
 - [Automatically Detecting Boards for HIL Testing (Golioth)](https://blog.golioth.io/automatically-detecting-boards-for-hardware-in-the-loop-hil-testing/) · [Automated hardware testing using pytest (Golioth)](https://blog.golioth.io/automated-hardware-testing-using-pytest/)
-- [AI-Driven ESP32 Workflow (Spec → Code → Test) using Claude Code — Andreas Spiess (video)](https://www.youtube.com/watch?v=nmGEedloQ6E) · [Universal Embedded Workbench (reference implementation, GitHub)](https://github.com/SensorsIot/Universal-Embedded-Workbench)
+- [AI-Driven ESP32 Workflow (Spec → Code → Test) using Claude Code — Andreas Spiess (video)](https://www.youtube.com/watch?v=nmGEedloQ6E) · [Embedded-AI-Harness (reference implementation, GitHub)](https://github.com/SensorsIot/Embedded-AI-Harness)
 - [build123d (code-CAD library)](https://build123d.readthedocs.io/) + the OCP CAD Viewer VS Code extension (live preview); KiCad with JLCPCB/PCBWay for custom-PCB fabrication

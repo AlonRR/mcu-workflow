@@ -16,6 +16,14 @@ All notable changes are documented here. The format follows
   reported as unverified. Real hardware needs an explicit `--port`. Also an MCP
   tool, with `--sim` against a simulated bench (`src/sim/bench.py`).
 
+### Changed
+- `mcuflow run` on real hardware now requires `--port`. It used to auto-detect
+  the DUT and, with one board connected, take that one - which on a shared USB
+  can be another project's board (on 15 Oct 2026 the only board connected was).
+  Without `--port` it now stops at the `ports` stage, before validating,
+  building or flashing, and names the board auto-detect would have picked.
+  `--sim` is unchanged. The VS Code extension's port status says so.
+
 ### Fixed
 - `examples/board-c3.yml` declared `rig.dut_boot_gpio: 9`, the DUT's own BOOT
   strap number, but `rig.dut_*_gpio` are **satellite** pins and the runbook

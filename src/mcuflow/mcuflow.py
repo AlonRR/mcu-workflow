@@ -610,9 +610,12 @@ def _autodetect_dut_satellite():
 def verb_run(args):
     """End-to-end: validate -> scaffold -> build -> flash -> hil. Honors --sim.
 
-    On real hardware (no --sim) with no explicit --port, the DUT port is
-    auto-detected from the connected boards and the choice is narrated as a
-    "ports" stage, so the automatic assignment is visible rather than silent.
+    On real hardware (no --sim) it needs an explicit --port, because it flashes
+    the DUT and a connected ESP32 is not necessarily the DUT: another project's
+    board can share the same USB, and "the only board connected" is exactly the
+    one a guess would overwrite. Without --port it stops at the "ports" stage
+    before anything runs, naming the board auto-detect would have picked so the
+    user can pass it on purpose.
     """
     stages = []
 
@@ -655,9 +658,9 @@ def verb_run(args):
         lines.append("RESULT: " + ("PASS" if code == EXIT_OK else "FAIL"))
         return emit(out, args.json, lines)
 
-    # 0. ports - resolve the DUT (and note the satellite) from connected boards
-    #    when running on real hardware without an explicit --port. Narrated as a
-    #    stage so the automatic choice is visible, never silent.
+    # 0. ports - on real hardware the DUT is named, never guessed: run flashes
+    #    it. Without --port, stop here and show what auto-detect would have
+    #    picked, so the user can pass it deliberately.
     port = getattr(args, "port", None)
     if not args.sim:
         if port:
@@ -668,27 +671,33 @@ def verb_run(args):
             except Exception as ex:
                 add("ports", EXIT_FAIL, "port auto-detect failed: " + str(ex))
                 return finish(EXIT_FAIL)
+            detail = (
+                "run flashes the DUT, so it needs --port: a connected ESP32 is not "
+                "necessarily the DUT (another project's board can share this USB)."
+            )
             if dut:
-                port = dut
-                detail = "auto-detected " + str(nboards) + " board(s): " + dut + " = DUT"
+                detail += (
+                    "\nauto-detect saw "
+                    + str(nboards)
+                    + " board(s) and would pick "
+                    + dut
+                    + " as the DUT ("
+                    + reason
+                    + "). If that is the DUT: --port "
+                    + dut
+                )
                 if sat:
-                    detail += ", " + sat + " = satellite"
-                detail += "\nwhy: " + reason
-                if sat and not getattr(args, "workbench", None):
                     detail += (
-                        "\nsatellite found - start it with `mcuflow workbench --satellite "
+                        "\nit took "
+                        + sat
+                        + " for the satellite - start it with `mcuflow workbench --satellite "
                         + sat
                         + "`"
                     )
-                add("ports", EXIT_OK, detail)
             else:
-                add(
-                    "ports",
-                    EXIT_OK,
-                    "no board auto-detected ("
-                    + reason
-                    + "); flashing will use the toolchain default - pass --port to pin it",
-                )
+                detail += "\nno board auto-detected (" + reason + "); connect the DUT first"
+            add("ports", EXIT_USAGE, detail)
+            return finish(EXIT_USAGE)
 
     # 1. validate
     vt = _validator_path()
@@ -1560,7 +1569,7 @@ def build_parser():
     r = sub.add_parser("run", help="validate->scaffold->build->flash->hil")
     r.add_argument("board", type=Path)
     r.add_argument("-o", "--out", type=Path, default=None)
-    r.add_argument("--port", default=None)
+    r.add_argument("--port", default=None, help="the DUT's serial port (required on hardware)")
     r.add_argument("--satellite", default="sim")
     r.add_argument("--workbench", default=None)
     r.set_defaults(func=verb_run)

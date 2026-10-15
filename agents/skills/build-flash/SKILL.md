@@ -26,9 +26,10 @@ mcuflow monitor --port <PORT>     # serial monitor (interactive)
 2. `mcuflow build`. On error, read the message; if it's an API/Kconfig issue,
    consult the ESP-IDF docs (or a docs MCP if one is configured) before editing.
    Rebuild until clean. Report size/warnings from the result, not the whole log.
-3. Pick the port. `mcuflow run` auto-detects the DUT, but for a bare
-   `flash`/`monitor` choose it explicitly: `mcuflow ports` (or `mcuflow ports
-   --list`) shows each board, its USB serial, and which is DUT vs satellite;
+3. Pick the port, always explicitly: another project's board can share the
+   USB, and the only board plugged in is not necessarily the DUT. `mcuflow run`
+   refuses to guess (without `--port` it stops and names the board it would
+   have picked). `mcuflow ports` (or `mcuflow ports --list`) shows each board, its USB serial, and which is DUT vs satellite;
    `mcuflow doctor` lists the ports; a networked workbench lists them at
    `GET /api/devices`.
 4. `mcuflow flash --port <PORT>`, then `mcuflow monitor --port <PORT>` to confirm

@@ -27,7 +27,7 @@ mcuflow test pytest_<project>.py --target <chip>
 2. Run the suite with `mcuflow test`. pytest-embedded flashes the board and runs
    the on-target tests; the `test.boot_string` check confirms the firmware came
    up. For the full validate -> ... -> hil pipeline use `mcuflow run` (which also
-   auto-detects and narrates the DUT port).
+   needs `--port` on hardware; without it, it stops and names its candidate).
 3. **Judge failures.** Re-run once if a failure looks like a flake (timeout, USB
    re-enumeration, transient WiFi join). If it persists it's real: report it with
    the captured device serial output, not just the assertion - the chip tells you

@@ -26,7 +26,7 @@ mcuflow --json validate examples/board-c3.yml      # machine-readable
 | `test <pyfile> [--target chip]` | pytest-embedded HIL run (or `--sim`) | pytest-embedded |
 | `hil <board.yml>` | workbench-mediated HIL (sim or real) | deliverable #9 |
 | `commission <board.yml> --port P [--satellite S \| --workbench URL]` | assert the bench matches board.yml before tests: chip, flash, satellite capabilities, BOOT/EN wires; `pins:`/`devices:` reported unverified | `src/commission/` |
-| `run <board.yml>` | validate → scaffold → build → flash → hil | the verbs above |
+| `run <board.yml> [--port P]` | validate → scaffold → build → flash → hil; on hardware `--port` is required (it never guesses the DUT) | the verbs above |
 | `up` | open the cage / pass USB through | deliverable #4 |
 | `workbench` | run the networked test instrument | deliverable #9 |
 | `ports` | view connected boards / COM-port mapping (GUI) | deliverable (portviewer) |

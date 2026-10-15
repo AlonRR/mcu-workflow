@@ -98,6 +98,10 @@ def test_sim_run_has_no_ports_stage():
 def test_real_run_records_explicit_port():
     # Non-sim build fails here (no toolchain), but the ports stage runs first and
     # must record the explicit --port choice - the visible-automation contract.
-    data = _run_json(["--json", "run", C3, "--port", "COM9", "-o", TMP])
+    # The port must be one that cannot exist: with the cage up this run builds
+    # and then flashes, and a real port name (COM9 was the bench DUT) would put
+    # the test's firmware on whatever board sits there.
+    port = "MCUFLOW-TEST-NO-SUCH-PORT"
+    data = _run_json(["--json", "run", C3, "--port", port, "-o", TMP])
     ports = [s for s in data["stages"] if s["stage"] == "ports"]
-    assert ports and "COM9" in ports[0]["detail"]
+    assert ports and port in ports[0]["detail"]

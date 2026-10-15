@@ -25,9 +25,9 @@ verbs one at a time when you need to stop and fix something between steps.
    no native ESP-IDF). On failure, read the error; consult the ESP-IDF docs (or
    a docs MCP if one is configured) for the right API/Kconfig; edit; rebuild.
    Don't guess at pins or APIs when the docs can answer.
-4. **Flash:** `mcuflow flash --port <PORT>`. The DUT port can be auto-detected -
-   `mcuflow run` resolves it and reports it as a visible "ports" stage; for a
-   bare flash, `mcuflow ports` shows which board is which. Use the build-flash
+4. **Flash:** `mcuflow flash --port <PORT>`. Name the DUT's port; never guess
+   it - another project's board can share the USB. `mcuflow ports` shows which
+   board is which; `mcuflow run` without `--port` stops and names its candidate. Use the build-flash
    skill.
 5. **Test (HIL):** on a bench not yet commissioned, run `mcuflow commission`
    first (a failure there is the bench, not the code), then hand to the

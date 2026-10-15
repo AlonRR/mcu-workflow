@@ -401,7 +401,7 @@ async function pickPortQuick(r: Resolved): Promise<string | undefined> {
     detail: p.description,
   }));
   const CLEAR = "$(clear-all) Clear selection";
-  items.push({ label: CLEAR, description: "use auto-detect" });
+  items.push({ label: CLEAR, description: "no port (run on hardware will ask for one)" });
   const pick = await vscode.window.showQuickPick(items, {
     placeHolder: "Select the board / serial port (used for flash, monitor, run)",
   });
@@ -418,10 +418,10 @@ function updatePortStatus(): void {
   if (!portStatus) {
     return;
   }
-  portStatus.text = selectedPort ? `$(plug) ${selectedPort}` : "$(plug) Port: auto";
+  portStatus.text = selectedPort ? `$(plug) ${selectedPort}` : "$(plug) Port: none";
   portStatus.tooltip = selectedPort
     ? `Selected port: ${selectedPort} (click to change)`
-    : "No port selected - mcuflow auto-detects the DUT. Click to choose.";
+    : "No port selected - mcuflow run needs the DUT's port on hardware. Click to choose.";
 }
 
 // --- new project: step 0 -----------------------------------------------------

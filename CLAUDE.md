@@ -75,7 +75,8 @@ the satellite GPIO to reset/recover a wedged DUT rather than asking for hands.
 share this machine's USB. Before resetting, flashing or running esptool on a
 port, find out what is on it read-only (open it with DTR and RTS set low
 *before* `open()`, which does not reset a C3, and listen), or have the owner
-name it. Never let `run` auto-pick a lone board as the DUT, and never pipe a
+name it. `run` and `commission` refuse to guess the DUT (both need `--port` on
+hardware); keep it that way, and never pipe a
 script that changes a board's state into `head`: a broken pipe can kill it
 before it restores the board. Before touching a port, load the
 `identify-before-reset` skill: it has the zero-touch check (the USB serial

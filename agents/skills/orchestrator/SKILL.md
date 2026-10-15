@@ -29,7 +29,9 @@ verbs one at a time when you need to stop and fix something between steps.
    `mcuflow run` resolves it and reports it as a visible "ports" stage; for a
    bare flash, `mcuflow ports` shows which board is which. Use the build-flash
    skill.
-5. **Test (HIL):** hand to the hil-test skill. Decide flake vs real failure;
+5. **Test (HIL):** on a bench not yet commissioned, run `mcuflow commission`
+   first (a failure there is the bench, not the code), then hand to the
+   hil-test skill. Decide flake vs real failure;
    re-run flakes, report real ones with the captured device output.
 6. **Report** the outcome concisely: what built, what flashed, what passed.
 

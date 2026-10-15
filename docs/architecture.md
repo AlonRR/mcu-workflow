@@ -361,6 +361,14 @@ AP and is host-agnostic by design (§9), where the reference couples that role t
 one piece worth importing is **fault injection** — drop the AP mid-session, stop the MQTT broker,
 emit malformed payloads — which §9's instrument list does not currently offer.
 
+*Status (15 Oct 2026):* (a) is built as far as it can go without code on the DUT:
+`mcuflow commission` checks the chip and flash size (esptool), the satellite's
+capabilities against `test.needs`, and the BOOT and EN wires by their observable
+effect (ROM boot mode, USB port drop). `pins:`/`devices:` are reported as
+*unverified* until a DUT-side probe exists. Building it exposed a contract bug
+the gate is meant to catch: `rig.dut_*_gpio` number **satellite** pins, and
+`board-c3.yml` had used the DUT's own strap number.
+
 ## 14. Sources
 
 - [ESP-IDF Releases (GitHub)](https://github.com/espressif/esp-idf/releases) · [Announcing ESP-IDF v6.0](https://developer.espressif.com/blog/2026/03/idf-v6-0-release/) · [ESP-IDF Versions](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/versions.html)

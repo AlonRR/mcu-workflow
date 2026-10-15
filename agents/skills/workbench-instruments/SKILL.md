@@ -42,13 +42,15 @@ Use the same SSID/PASS the firmware was built with (`mcuflow-test` /
 sides together.
 
 **GPIO stimulus / recovery.** The satellite's GPIO is wired to the DUT's
-BOOT/EN (see `board.yml` `rig.dut_boot_gpio`). To force download mode or recover
-a bootlooping DUT, hold BOOT low and pulse EN:
+BOOT/EN (see `board.yml` `rig.dut_boot_gpio` / `rig.dut_reset_gpio` — these are
+**satellite** pin numbers, not the DUT's). `mcuflow commission` proves each wire
+by its effect before you rely on it. To force download mode or recover a
+bootlooping DUT, hold BOOT low and pulse EN:
 ```
-POST /api/gpio/set {"pin":<dut_boot_gpio>,"value":0}   # BOOT low
-POST /api/gpio/set {"pin":<en_pin>,"value":0}          # pulse EN ...
-POST /api/gpio/set {"pin":<en_pin>,"value":1}          # ... to reset
-POST /api/gpio/get {"pin":<dut_boot_gpio>}
+POST /api/gpio/set {"pin":<dut_boot_gpio>,"value":0}    # BOOT low
+POST /api/gpio/set {"pin":<dut_reset_gpio>,"value":0}   # pulse EN ...
+POST /api/gpio/set {"pin":<dut_reset_gpio>,"value":1}   # ... to reset
+POST /api/gpio/get {"pin":<dut_boot_gpio>}              # release BOOT (pin -> input)
 ```
 
 **Signal generator (PWM).** Drive a square wave on a satellite pin:

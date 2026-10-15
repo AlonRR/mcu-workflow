@@ -12,7 +12,8 @@ recommendation below was adopted as built unless noted.
 
 Give an MCP client — Claude Code, an editor, or the in-cage agent — first-class
 tool-calls for the microcontroller loop: `validate`, `scaffold`, `build`,
-`flash`, `test`, `hil`, `run`, `doctor`, `ports`, and a bounded `monitor`. This
+`flash`, `test`, `hil`, `commission`, `run`, `doctor`, `ports`, and a bounded
+`monitor`. This
 is the deliverable tracked in [architecture.md §12.1](architecture.md); read
 that section first — it fixes the intent and the constraints, and this doc is
 the concrete build plan under it.
@@ -137,6 +138,7 @@ doctor`. Split by whether a verb is naturally request/response:
 | `flash` | direct | `--port`, `--sim` |
 | `test` | direct | pytest file (or board.yml with `--sim`) |
 | `hil` | direct | `--satellite`, `--workbench`, `--sim` |
+| `commission` | direct | `--port` (required on hardware), `--satellite`, `--workbench`, `--sim`; added 15 Oct 2026, after §12.1's list |
 | `run` | direct | composite; returns the per-stage structured result |
 | `doctor` | direct | preflight; `--satellite` optional |
 | `ports` | direct | backed by `ports --json` (the structured snapshot) |

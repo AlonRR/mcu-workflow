@@ -15,6 +15,10 @@ mcuflow test pytest_<project>.py --target <chip>
 
 ## Steps
 
+0. On a bench you haven't commissioned, run `mcuflow commission <board.yml>
+   --port <DUT> --satellite <SAT>` (or `--workbench <URL>`) first. It checks the
+   chip, flash size, satellite capabilities and the BOOT/EN wires, so a failure
+   there is the bench, and a later test failure is the code.
 1. Check the instruments a suite needs. Read `board.yml` `test.needs` (e.g.
    `[serial, wifi]`) against the workbench `GET /api/capabilities` (or the runner
    labels). If a needed instrument is absent — or only experimental, like `ble`

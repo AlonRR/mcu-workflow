@@ -6,7 +6,25 @@ All notable changes are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `mcuflow commission <board.yml>`: asserts the bench matches `board.yml`
+  before any test runs (architecture §13). It checks that the DUT port is
+  present, the chip and flash size (esptool) against `meta.chip` and
+  `build.sdkconfig`, the satellite's capabilities against `test.needs`, and the
+  BOOT/EN wires by their observable effect (the ROM's boot mode at reset; the
+  DUT's USB port dropping while EN is held low). `pins:`/`devices:` are
+  reported as unverified. Real hardware needs an explicit `--port`. Also an MCP
+  tool, with `--sim` against a simulated bench (`src/sim/bench.py`).
+
 ### Fixed
+- `examples/board-c3.yml` declared `rig.dut_boot_gpio: 9`, the DUT's own BOOT
+  strap number, but `rig.dut_*_gpio` are **satellite** pins and the runbook
+  wires satellite GPIO2 (BOOT) and GPIO3 (EN). It now declares 2 and 3. The
+  schema describes both fields as satellite pins, the validator no longer counts
+  them in the DUT's pin-conflict check, and `hil`'s `gpio_stimulus` step says it
+  has no readback.
+- The satellite simulator now releases a pin on `gpio.get`, as both firmware
+  editions do.
 - The `mcp` extra is capped at `mcp>=1.12,<2`. The MCP SDK's 2.0 release
   removed the low-level `Server.list_tools()` / `Server.call_tool()`
   decorators the server registers through, so a fresh `.[mcp]` install

@@ -66,8 +66,9 @@ hardware prerequisites. (Already have Python 3.10+? `pip install -e .` works too
 
 Put `bin/` on your PATH and it's just `mcuflow ...` (`bin/mcuflow` on POSIX,
 `bin\mcuflow.bat` on Windows). Verbs: `validate scaffold build flash monitor test
-hil run up workbench ports bridge debug mcp doctor env`. Add `--sim` for no hardware; drop it (and
-add `--port`/`--workbench`) for real boards. With no native ESP-IDF, `build` runs
+hil commission run up workbench ports bridge debug mcp doctor env`. Add `--sim` for no hardware; drop it (and
+add `--port`/`--workbench`) for real boards. `mcuflow commission` checks that the
+bench matches `board.yml` before any test runs. With no native ESP-IDF, `build` runs
 in the Docker cage and `flash` uses host `esptool` over the board's COM port.
 `mcuflow ports` opens a viewer that shows which board is on which COM port.
 

@@ -38,8 +38,8 @@ Point any MCP client at the command. For Claude Code (`mcpServers` config):
 ## Tools
 
 Derived from the request/response verbs: `validate`, `scaffold`, `build`,
-`flash`, `monitor`, `test`, `hil`, `run`, `doctor`, `ports`, `env`. `build`,
-`flash`, `test`, `hil`, and `run` take a `sim` boolean (dry-run, no
+`flash`, `monitor`, `test`, `hil`, `commission`, `run`, `doctor`, `ports`, `env`.
+`build`, `flash`, `test`, `hil`, `commission`, and `run` take a `sim` boolean (dry-run, no
 hardware/toolchain). Each tool returns the CLI's JSON envelope as both text and
 `structuredContent`; a non-zero exit maps to an MCP error with the envelope still
 attached.

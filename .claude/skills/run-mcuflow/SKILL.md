@@ -57,6 +57,6 @@ bad input · `127` a required external tool is missing.
 ## Notes
 
 - Write any scratch output under `$CLAUDE_JOB_DIR/tmp`, not the repo tree.
-- `--sim` runs `build`/`flash`/`test`/`hil`/`run` with no toolchain or hardware —
+- `--sim` runs `build`/`flash`/`test`/`hil`/`commission`/`run` with no toolchain or hardware —
   use it for any check that doesn't need a real board.
 - `uv run pytest` (from the repo root) is the hardware-free regression.

@@ -15,9 +15,13 @@ real version.
 
 ## Already built and verified (no hardware)
 
-- `mcuflow` CLI: verbs `validate scaffold build flash monitor test hil run up
-  workbench ports bridge debug doctor env`; `--sim` runs build/flash/test with no
-  toolchain.
+- `mcuflow` CLI: verbs `validate scaffold build flash monitor test hil commission
+  run up workbench ports bridge debug mcp doctor env`; `--sim` runs
+  build/flash/test/hil/commission/run with no toolchain or hardware.
+- `mcuflow commission` asserts the bench matches `board.yml` before tests run
+  (chip, flash size, satellite capabilities, and the BOOT/EN wires by their
+  observable effect). `rig.dut_boot_gpio` / `rig.dut_reset_gpio` are
+  **satellite** pin numbers; `board-c3.yml` declares the runbook's wiring (2, 3).
 - C3 DUT config: `examples/board-c3.yml` (LED=GPIO8 active-low,
   BOOT=GPIO9, native USB, 4MB). Scaffolds chip-correct (`set-target esp32c3`).
 - DUT firmware: the scaffold now generates **real WiFi-join code** when
@@ -67,3 +71,10 @@ real version.
 Stay within the cage's intent (docs/architecture.md §6–7). Don't push to shared
 remotes or exfiltrate secrets. Hardware on the bench is safe to iterate on; use
 the satellite GPIO to reset/recover a wedged DUT rather than asking for hands.
+**But a connected ESP32 is not necessarily the bench:** other projects' boards
+share this machine's USB. Before resetting, flashing or running esptool on a
+port, find out what is on it read-only (open it with DTR and RTS set low
+*before* `open()`, which does not reset a C3, and listen), or have the owner
+name it. Never let `run` auto-pick a lone board as the DUT, and never pipe a
+script that changes a board's state into `head`: a broken pipe can kill it
+before it restores the board.

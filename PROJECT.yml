@@ -4,7 +4,7 @@ schema: 1
 projects:
   - name:     MCU workflow HIL rig
     kind:     build
-    state:    parked
-    next:     "add a commission gate that asserts the bench matches board.yml"
+    state:    active
+    next:     "run mcuflow commission on the two C3s"
     trackers: [docs/runbook-c3.md, examples/board-c3.yml]
-    review:   2026-10-14
+    review:   2026-10-15

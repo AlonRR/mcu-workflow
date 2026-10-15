@@ -91,6 +91,11 @@ deepened with its action instruments + bridge/debug verbs (session 4), and the
 project is now an installable `pyproject.toml` package with `mcuflow` on PATH.
 What's left:
 
+0. **Finish the commissioning gate** (architecture §13). `mcuflow commission`
+   exists (15 Oct 2026, below); still to do: run it on the two C3s, and add a
+   DUT-side probe so `pins:`/`devices:` are verified rather than reported
+   unverified. Then §13's other two: a real test-case library behind
+   `hil-test`, and the tier-assignment rule.
 1. **Fix on-silicon BLE.** `/api/ble/scan` works in the simulator but the NimBLE
    observer resets the C3 on real hardware — needs on-device `idf.py monitor`
    debugging (the panic isn't capturable over the USB-JTAG console headlessly).
@@ -211,3 +216,20 @@ finalizing:
   personal email scrubbed from git history (commits use the GitHub noreply
   address); `tools/satcheck.py` added; docs corrected with a PlatformIO
   inspiration disclaimer.
+
+## Update — 2026-10-15: the commissioning gate, first increment
+
+- **`mcuflow commission`** asserts the bench matches `board.yml` before tests:
+  DUT port present, chip and flash size via esptool, satellite capabilities vs
+  `test.needs`, and the BOOT/EN wires by effect (BOOT held low means the ROM
+  reports `DOWNLOAD` at reset, released means a flash boot; EN held low means
+  the DUT's USB port drops, released means it returns). `pins:`/`devices:` are
+  reported *unverified*. Real hardware needs `--port`; it never auto-picks.
+  Exposed over MCP. Simulated bench: `src/sim/bench.py`.
+- **Rig-pin fix.** `rig.dut_*_gpio` are satellite pins, but `board-c3.yml` had
+  `dut_boot_gpio: 9` (the DUT's own strap) while the runbook wires satellite
+  GPIO2/3. `hil`'s `gpio_stimulus` has no readback, so the session-3 PASS
+  toggled an unwired pin. Now 2/3, described in the schema, excluded from the
+  DUT pin-conflict check, and tied to the runbook by a test.
+- **Not yet on silicon:** only one C3 was connected, and it turned out not to be
+  a bench board, so the BOOT/EN checks are proven only in the simulator.

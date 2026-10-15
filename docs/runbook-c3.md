@@ -193,7 +193,9 @@ All five stages are green on real silicon (proven on the two C3s — see
   esptool's `Detected flash size:` line follow their documented formats but were
   not captured. Its BOOT/EN wire checks have **not yet run on the two C3s**: do
   that before trusting a `gpio_stimulus` PASS, which has no readback.
-  The `--probe` image is likewise checked only in simulation so far.
+  The `--probe` image compiles cleanly in the ESP-IDF v6.0 cage for both
+  example boards (C3 and S3, 0 warnings, 15 Oct 2026) but has not yet run on
+  hardware.
 - **RF-proximity gotcha:** two PCB-antenna C3s sitting inches apart desense each
   other and the join loops at 802.11 auth (`reason=2`). Keep them ~0.5 m apart. If
   a join ever flaps, check board spacing first.

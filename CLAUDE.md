@@ -77,4 +77,7 @@ port, find out what is on it read-only (open it with DTR and RTS set low
 *before* `open()`, which does not reset a C3, and listen), or have the owner
 name it. Never let `run` auto-pick a lone board as the DUT, and never pipe a
 script that changes a board's state into `head`: a broken pipe can kill it
-before it restores the board.
+before it restores the board. Before touching a port, load the
+`identify-before-reset` skill: it has the zero-touch check (the USB serial
+number), the no-reset esptool probe for "stuck in download mode", and the
+recovery that worked.

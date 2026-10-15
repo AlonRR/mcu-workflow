@@ -33,7 +33,10 @@ MCUFLOW = [sys.executable, str(ROOT / "src" / "mcuflow" / "mcuflow.py")]
 C3_PATH = ROOT / "examples" / "board-c3.yml"
 C3 = yaml.safe_load(C3_PATH.read_text(encoding="utf-8"))
 
-# Captured on an ESP32-C3 Super Mini, 15 Oct 2026 (esptool v5.3.1; MAC lines dropped).
+# The esptool v5 header (chip type .. USB mode) was captured from an ESP32-C3 Super
+# Mini on 15 Oct 2026 by a chip-id run (esptool v5.3.1; MAC lines dropped). The
+# "Detected flash size:" line was NOT captured: its shape is taken from esptool
+# 5.3.1's own source (cli_util.py / cmds.py print f"Detected flash size: {size}").
 ESPTOOL_V5 = """esptool v5.3.1
 Connected to ESP32-C3 on COM13:
 Chip type:          ESP32-C3 (QFN32) (revision v0.4)
@@ -47,6 +50,7 @@ ESPTOOL_V4 = """esptool.py v4.8.1
 Chip is ESP32-S3 (QFN56) (revision v0.2)
 Detected flash size: 8MB
 """
+# Captured from the same C3 on 15 Oct 2026: the ROM banner of an app boot.
 ROM_APP_BOOT = [
     "ESP-ROM:esp32c3-api1-20210207",
     "Build:Feb  7 2021",
@@ -91,6 +95,8 @@ def test_chip_slug_matches_board_spelling():
 
 def test_boot_mode_reads_the_rom_line():
     assert cm.boot_mode(ROM_APP_BOOT) == "flash"
+    # NOT captured (the download-mode capture was lost); written in the ROM's format.
+    # The parser keys on the mode NAME, so the chip-specific hex does not matter.
     dl = ["rst:0x15 (USB_UART_CHIP_RESET),boot:0x5 (DOWNLOAD(USB/UART0))", "waiting for download"]
     assert cm.boot_mode(dl) == "download"
     # app output with no ROM line (or nothing at all) proves nothing either way
@@ -182,6 +188,34 @@ def test_boot_strap_stuck_low_fails():
     rep = cm.commission(C3, SimBench(C3, boot_stuck_low=True))
     assert statuses(rep)["boot_line"] == "fail"
     assert "released" in detail(rep, "boot_line")
+
+
+def test_boot_line_recovers_a_dut_the_usb_reset_cannot_free():
+    # Measured 15 Oct 2026: from the ROM loader an RTS pulse printed nothing and
+    # left the chip there, while esptool's hard reset brought it back. The check
+    # must not leave the DUT in download mode when its control reset can't.
+    bench = SimBench(C3, usb_reset_frees_loader=False)
+    rep = cm.commission(C3, bench)
+    assert statuses(rep)["boot_line"] == "pass", detail(rep, "boot_line")
+    assert bench.recoveries == 1
+    assert bench.mode == "flash"
+    assert "esptool hard reset" in detail(rep, "boot_line")
+
+
+def test_boot_line_names_the_manual_recovery_when_it_cannot_confirm():
+    # Nothing readable after any reset: unproven, and the DUT's state unknown -
+    # the detail must say how to get it out of the loader by hand.
+    bench = SimBench(C3, rom_silent=True)
+    rep = cm.commission(C3, bench)
+    assert statuses(rep)["boot_line"] == "fail"
+    assert bench.recoveries == 1
+    assert "--before no_reset --after hard_reset chip_id" in detail(rep, "boot_line")
+
+
+def test_boot_line_does_not_recover_a_dut_that_booted_normally():
+    bench = SimBench(C3)
+    cm.commission(C3, bench)
+    assert bench.recoveries == 0
 
 
 def test_unwired_reset_line_fails():

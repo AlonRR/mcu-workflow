@@ -13,7 +13,9 @@ observe that differs between "bench right" and "bench wrong":
   satellite     a satellite answers, is not the DUT, and has the capabilities
                 test.needs and the rig lines call for
   boot_line     the satellite holds rig.dut_boot_gpio low and the DUT's ROM
-                reports DOWNLOAD at reset; released, it reports a flash boot
+                reports DOWNLOAD at reset; released, it reports a flash boot.
+                A DUT the control reset leaves in the loader is recovered
+                with esptool's hard reset, never left there silently
   reset_line    the satellite holds rig.dut_reset_gpio low and the DUT's USB
                 port disappears; released, it comes back
   pins_devices  pins:/devices: need code on the DUT to probe - reported as
@@ -285,19 +287,38 @@ def _check_boot_line(board, bench):
             errors.append("released: " + str(e))
 
     seen = "held low -> " + str(held) + ", released -> " + str(released)
+    if released != "flash":
+        # The control reset should have put the DUT back in its app. From the ROM
+        # loader a USB RTS pulse can print nothing and leave the chip there
+        # (measured on a C3, 15 Oct 2026), while esptool's hard reset frees it -
+        # so recover, then read the control again. (Pulsing EN through
+        # rig.dut_reset_gpio would also work, independent of USB.)
+        try:
+            bench.recover()
+            released = boot_mode(bench.reset_capture())
+        except Exception as e:
+            errors.append("recovery: " + str(e))
+        seen += ", after an esptool hard reset -> " + str(released)
+    stuck = (
+        ""
+        if released == "flash"
+        else " The DUT may still be in download mode: recover it with "
+        "esptool --port " + str(bench.dut_port) + " --before no_reset --after hard_reset chip_id"
+    )
     if errors:
-        return _result("boot_line", "fail", seen + "; " + "; ".join(errors))
+        return _result("boot_line", "fail", seen + "; " + "; ".join(errors) + "." + stuck)
     if held is None or released is None:
         return _result(
-            "boot_line", "fail", seen + ": no ROM boot line captured, so the wire is unproven"
+            "boot_line",
+            "fail",
+            seen + ": no ROM boot line captured, so the wire is unproven." + stuck,
         )
     if released == "download":
         return _result(
             "boot_line",
             "fail",
             seen + ": the DUT enters download mode even with the line released "
-            "(strap stuck low or BOOT held). Recover it with: "
-            "esptool --before no_reset --after hard_reset chip_id",
+            "(strap stuck low or BOOT held)." + stuck,
         )
     if held == "flash":
         return _result(
@@ -475,6 +496,14 @@ class SerialBench:
         cmd = [self.python, "-m", "esptool", "--port", self.dut_port]
         cmd += ["--before", "default_reset", "--after", "hard_reset", "flash_id"]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
+        return (proc.stdout or "") + (proc.stderr or "")
+
+    def recover(self):
+        """Get the DUT out of the ROM loader into its app: esptool connects without
+        resetting (it is already in the loader) and hard-resets on the way out."""
+        cmd = [self.python, "-m", "esptool", "--port", self.dut_port]
+        cmd += ["--before", "no_reset", "--after", "hard_reset", "chip_id"]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         return (proc.stdout or "") + (proc.stderr or "")
 
     def reset_capture(self):

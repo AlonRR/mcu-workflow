@@ -50,6 +50,8 @@ class SimBench:
         boot_wire=_AS_DECLARED,
         reset_wire=_AS_DECLARED,
         boot_stuck_low=False,
+        usb_reset_frees_loader=True,
+        rom_silent=False,
         dut_present=True,
         dut_port="SIM-DUT",
         sat_port="SIM-SAT",
@@ -60,6 +62,12 @@ class SimBench:
         self.boot_wire = rig.get("dut_boot_gpio") if boot_wire is _AS_DECLARED else boot_wire
         self.reset_wire = rig.get("dut_reset_gpio") if reset_wire is _AS_DECLARED else reset_wire
         self.boot_stuck_low = boot_stuck_low
+        # False models the C3 measured 15 Oct 2026: once in the ROM loader, a USB
+        # RTS reset printed nothing and left it there; only esptool's hard reset
+        # (recover) brought it back.
+        self.usb_reset_frees_loader = usb_reset_frees_loader
+        self.rom_silent = rom_silent  # every reset prints nothing readable
+        self.recoveries = 0
         self.dut_present = dut_present
         self.chip = chip or _chip_description(meta.get("chip"))
         self.flash = flash or _declared_flash(board) or "4MB"
@@ -90,9 +98,19 @@ class SimBench:
             "Hard resetting via RTS pin...\n"
         )
 
-    def reset_capture(self):
+    def recover(self):
+        self.recoveries += 1
         low = self.boot_stuck_low or self._driven_low(self.boot_wire)
         self.mode = "download" if low else "flash"
+        return "Hard resetting via RTS pin...\n"
+
+    def reset_capture(self):
+        if self.mode == "download" and not self.usb_reset_frees_loader:
+            return []
+        low = self.boot_stuck_low or self._driven_low(self.boot_wire)
+        self.mode = "download" if low else "flash"
+        if self.rom_silent:
+            return []
         boot = "boot:0x5 (DOWNLOAD(USB/UART0))" if low else "boot:0xf (SPI_FAST_FLASH_BOOT)"
         lines = ["ESP-ROM:esp32c3-api1-20210207", "rst:0x15 (USB_UART_CHIP_RESET)," + boot]
         lines.append("waiting for download" if low else "I (320) app: app_main started")

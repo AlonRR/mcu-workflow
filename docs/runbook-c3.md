@@ -181,9 +181,11 @@ All five stages are green on real silicon (proven on the two C3s — see
   DUT serial to confirm both `app_main started` and that join line while the real
   satellite AP is up.
 - **Commission (15 Oct 2026):** `mcuflow commission` (§3) passes in the
-  simulator; its esptool and ROM-banner parsing is checked against output
-  captured from a real C3. Its BOOT/EN wire checks have **not yet run on the two
-  C3s**: do that before trusting a `gpio_stimulus` PASS, which has no readback.
+  simulator. Of what it parses, only esptool's chip-type header and the ROM's
+  app-boot line were captured from a real C3; the `DOWNLOAD` boot line and
+  esptool's `Detected flash size:` line follow their documented formats but were
+  not captured. Its BOOT/EN wire checks have **not yet run on the two C3s**: do
+  that before trusting a `gpio_stimulus` PASS, which has no readback.
 - **RF-proximity gotcha:** two PCB-antenna C3s sitting inches apart desense each
   other and the join loops at 802.11 auth (`reason=2`). Keep them ~0.5 m apart. If
   a join ever flaps, check board spacing first.

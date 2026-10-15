@@ -871,37 +871,49 @@ def verb_debug(args):
     return dbg.main(fwd)
 
 
+def _build_probe_image(board):
+    """Build the `commission --probe` image for `board` (or reuse the one built
+    for the same fingerprint) under build-out/_probe/, and return its project
+    directory. A native idf.py if present, else the platform's cage image. The
+    CLI owns this because it owns the toolchain choice."""
+    pf = _load_sibling("mcuflow_probe_fw", "commission/probe_fw.py")
+    meta = board.get("meta") or {}
+    chip = meta.get("chip") or "esp32c3"
+    adapter = _adapter(meta.get("platform") or "esp32")
+    name = pf.safe_name(meta.get("project", "project")) + "-" + pf.fingerprint(board)
+    out = REPO_ROOT / "build-out" / "_probe" / name
+    if (out / "build" / "flasher_args.json").exists():
+        return out
+    pf.write_project(board, out)
+    build_cmd = adapter.build_cmd(str(out))
+    image = _cage_image(adapter)
+    if shutil.which(build_cmd[0]) is not None:
+        rc, o, e = _run([build_cmd[0], "-C", str(out), "set-target", chip])
+        if rc == EXIT_OK:
+            rc, o, e = _run(build_cmd)
+    elif _cage_available(image):
+        rc, o, e = _run(adapter.cage_build_cmd(str(out), chip, image))
+    else:
+        raise RuntimeError(
+            "no ESP-IDF to build the probe image: install idf.py, or start Docker "
+            "with the cage image (`mcuflow doctor --fix`)"
+        )
+    if rc != EXIT_OK:
+        tail = " | ".join((o + e).strip().splitlines()[-5:])
+        raise RuntimeError("probe image build failed in " + str(out) + ": " + tail)
+    return out
+
+
 def _probe_runner(port):
-    """The real bench's prober for `commission --probe`: build the probe image
-    (once per fingerprint, under build-out/_probe/), flash it, and capture its
-    report. The CLI owns this because it owns the toolchain choice: a native
-    idf.py if present, else the platform's cage image."""
+    """The real bench's prober for `commission --probe`: build (or reuse) the
+    probe image, flash it, and capture its report until the done line."""
 
     def run(board, bench):
         pf = _load_sibling("mcuflow_probe_fw", "commission/probe_fw.py")
         meta = board.get("meta") or {}
         chip = meta.get("chip") or "esp32c3"
         adapter = _adapter(meta.get("platform") or "esp32")
-        name = pf.safe_name(meta.get("project", "project")) + "-" + pf.fingerprint(board)
-        out = REPO_ROOT / "build-out" / "_probe" / name
-        if not (out / "build" / "flasher_args.json").exists():
-            pf.write_project(board, out)
-            build_cmd = adapter.build_cmd(str(out))
-            image = _cage_image(adapter)
-            if shutil.which(build_cmd[0]) is not None:
-                rc, o, e = _run([build_cmd[0], "-C", str(out), "set-target", chip])
-                if rc == EXIT_OK:
-                    rc, o, e = _run(build_cmd)
-            elif _cage_available(image):
-                rc, o, e = _run(adapter.cage_build_cmd(str(out), chip, image))
-            else:
-                raise RuntimeError(
-                    "no ESP-IDF to build the probe image: install idf.py, or start Docker "
-                    "with the cage image (`mcuflow doctor --fix`)"
-                )
-            if rc != EXIT_OK:
-                tail = " | ".join((o + e).strip().splitlines()[-5:])
-                raise RuntimeError("probe image build failed in " + str(out) + ": " + tail)
+        out = _build_probe_image(board)
         rc, o, e = _run(adapter.host_flash_cmd(str(out), port, chip, sys.executable))
         if rc != EXIT_OK:
             tail = " | ".join((o + e).strip().splitlines()[-3:])
@@ -978,8 +990,21 @@ def verb_commission(args):
         + " checks: "
         + ", ".join(str(n[s]) + " " + s for s in ("pass", "fail", "skip", "unverified"))
     )
+    left = "probe image" if getattr(bench, "probe_runs", 0) else None
+    if left:
+        lines.append(
+            "note: the DUT is left running the probe image, not its app - flash the app "
+            "next (`mcuflow run` does)"
+        )
     lines.append("RESULT: " + ("PASS" if rep["ok"] else "FAIL"))
-    out = {"verb": "commission", "ok": rep["ok"], "exit_code": rc, "sim": args.sim, "report": rep}
+    out = {
+        "verb": "commission",
+        "ok": rep["ok"],
+        "exit_code": rc,
+        "sim": args.sim,
+        "dut_left_running": left,
+        "report": rep,
+    }
     return emit(out, args.json, lines)
 
 

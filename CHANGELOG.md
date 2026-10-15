@@ -21,8 +21,8 @@ All notable changes are documented here. The format follows
   whether it answers at its declared address, with a bus scan naming any
   address that did. Pins and devices it cannot observe (plain GPIO, SPI, UART,
   gpio/adc devices) are listed one by one as unverified, each with its reason.
-  It never flashes when the chip check failed. The DUT is left running the
-  probe image.
+  It never flashes when the chip or flash-size check failed, and the report
+  says the DUT is left running the probe image.
 
 ### Changed
 - `mcuflow run` on real hardware now requires `--port`. It used to auto-detect
@@ -41,6 +41,9 @@ All notable changes are documented here. The format follows
   has no readback.
 - The satellite simulator now releases a pin on `gpio.get`, as both firmware
   editions do.
+- `hil`'s `gpio_stimulus` step ended with the satellite driving the DUT's BOOT
+  line high; with a real wire, pressing BOOT then shorts that output to ground.
+  It now releases the line (`gpio.get`) after the toggle.
 - The `mcp` extra is capped at `mcp>=1.12,<2`. The MCP SDK's 2.0 release
   removed the low-level `Server.list_tools()` / `Server.call_tool()`
   decorators the server registers through, so a fresh `.[mcp]` install

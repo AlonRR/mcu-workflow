@@ -128,7 +128,7 @@ def test_probe_passes_when_the_declared_device_answers():
     st = statuses(rep)
     assert st["device:temp"] == "pass", detail(rep, "device:temp")
     assert "0x76" in detail(rep, "device:temp")
-    assert st["pins:status_led"] == "unverified"
+    assert st["pin:status_led"] == "unverified"
     assert "pins_devices" not in st  # replaced by per-item results
     assert rep["ok"]
     assert bench.probe_runs == 1
@@ -271,3 +271,59 @@ def test_prober_without_a_toolchain_says_how_to_get_one(monkeypatch):
         shutil.rmtree(_probe_dir(board), ignore_errors=True)
     assert raised and "doctor --fix" in raised
     assert ran == []  # nothing built, nothing flashed
+
+
+# --- fix-ups: one name per section, a gate on flash too, and the left-behind note ---
+
+
+def test_check_names_use_one_prefix_per_section():
+    # Probed and unprobed devices are both "device:", pins are "pin:" - never
+    # "devices:" beside "device:" in one report.
+    rep = cm.commission(FULL, SimBench(FULL, probe=True))
+    fixed = {"dut_port", "dut_chip", "dut_flash", "satellite", "boot_line", "reset_line", "probe"}
+    names = [c["check"] for c in rep["checks"]]
+    odd = [n for n in names if n not in fixed and not n.startswith(("device:", "pin:"))]
+    assert odd == [], odd
+    assert {"device:temp", "device:display", "device:sd_card", "device:motor"} <= set(names)
+    assert {"pin:spi2", "pin:uart0", "pin:status_led"} <= set(names)
+
+
+def test_probe_is_not_flashed_when_the_flash_size_does_not_match():
+    bench = SimBench(C3, probe=True, flash="2MB")
+    rep = cm.commission(C3, bench)
+    assert statuses(rep)["device:temp"] == "unverified"
+    assert bench.probe_runs == 0
+
+
+def test_cli_says_the_dut_is_left_running_the_probe_image():
+    r = subprocess.run(
+        MCUFLOW + ["--sim", "commission", str(C3_PATH), "--probe"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "left running the probe image" in r.stdout
+    plain = subprocess.run(
+        MCUFLOW + ["--sim", "commission", str(C3_PATH)], capture_output=True, text=True
+    )
+    assert "left running" not in plain.stdout  # nothing was flashed, so no note
+
+
+def test_probe_image_build_is_its_own_step(monkeypatch, tmp_path):
+    # The build is callable on its own (the compile check uses exactly this),
+    # and it writes the project where the prober will look for it.
+    board = json.loads(json.dumps(C3))
+    board["meta"]["project"] = "probe-build-split-test"
+    monkeypatch.setattr(cli.shutil, "which", lambda name: None)
+    monkeypatch.setattr(cli, "_cage_available", lambda image: True)
+    ran = []
+    monkeypatch.setattr(cli, "_run", lambda cmd, **k: ran.append(cmd) or (0, "", ""))
+    try:
+        out = cli._build_probe_image(board)
+        assert out == _probe_dir(board)
+        assert (out / "main" / "main.c").exists()
+    finally:
+        import shutil
+
+        shutil.rmtree(_probe_dir(board), ignore_errors=True)
+    assert len(ran) == 1 and ran[0][0] == "docker"  # one cage build, no flash

@@ -264,12 +264,15 @@ def run_hil(
         if boot_gpio is not None:
             a = _http(workbench_base, "/api/gpio/set", {"pin": boot_gpio, "value": 0})
             b = _http(workbench_base, "/api/gpio/set", {"pin": boot_gpio, "value": 1})
+            # Release the line (gpio.get -> input): left driven high, the
+            # satellite output shorts to ground when someone presses BOOT.
+            c = _http(workbench_base, "/api/gpio/get", {"pin": boot_gpio})
             record(
                 "gpio_stimulus",
-                a.get("ok") and b.get("ok"),
+                a.get("ok") and b.get("ok") and c.get("ok"),
                 "toggled satellite GPIO "
                 + str(boot_gpio)
-                + " (no readback here: `mcuflow commission` proves the wire)",
+                + " and released it (no readback here: `mcuflow commission` proves the wire)",
             )
     finally:
         # Teardown runs even when a step blew up mid-scenario, and is attempted

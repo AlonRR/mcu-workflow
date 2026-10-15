@@ -408,11 +408,18 @@ def _hexaddr(a):
     return "0x%02x" % a
 
 
-def _check_devices_by_probe(board, bench, chip_ok):
+def _item_check_name(key):
+    """'pins.status_led' -> 'pin:status_led', 'devices.temp' -> 'device:temp':
+    one prefix per board.yml section, whether or not the item was probed."""
+    section, name = key.split(".", 1)
+    return {"pins": "pin", "devices": "device"}[section] + ":" + name
+
+
+def _check_devices_by_probe(board, bench, bench_ok):
     """Flash the probe image and turn its findings into one check per device."""
     plan = probe_fw.probe_plan(board)
     unprobed = [
-        _result(key.replace(".", ":", 1), "unverified", reason) for key, reason in plan["unprobed"]
+        _result(_item_check_name(key), "unverified", reason) for key, reason in plan["unprobed"]
     ]
     targets = [(b, d) for b in plan["i2c"] for d in b["devices"]]
     if not targets:
@@ -423,9 +430,13 @@ def _check_devices_by_probe(board, bench, chip_ok):
             _result("device:" + d["name"], "unverified", "not run: " + why) for _b, d in targets
         ]
 
-    if not chip_ok:
-        # The image is built for meta.chip; never flash it onto anything else.
-        return not_run("the probe image is only flashed onto the chip board.yml names") + unprobed
+    if not bench_ok:
+        # The image is built for meta.chip and the declared flash; never flash
+        # it onto a DUT that doesn't match them.
+        return (
+            not_run("the probe image is only flashed onto a DUT whose chip and flash match")
+            + unprobed
+        )
     try:
         lines = bench.run_probe(board)
     except Exception as e:
@@ -546,9 +557,11 @@ def commission(board, bench):
         checks.append(pre if pre is not None else fn(board, bench))
 
     if getattr(bench, "probe_enabled", False):
-        chip = next(c for c in checks if c["check"] == "dut_chip")
-        chip_ok = dut_ok and chip["status"] == "pass"
-        checks += _check_devices_by_probe(board, bench, chip_ok)
+        status = {c["check"]: c["status"] for c in checks}
+        bench_ok = (
+            dut_ok and status["dut_chip"] == "pass" and status["dut_flash"] in ("pass", "skip")
+        )
+        checks += _check_devices_by_probe(board, bench, bench_ok)
     else:
         checks.append(_check_pins_devices(board))
 
@@ -623,8 +636,10 @@ class SerialBench:
         # captures its output. The CLI supplies it (it owns the toolchain).
         self.prober = prober
         self.probe_enabled = prober is not None
+        self.probe_runs = 0  # > 0 once the probe image may have been flashed
 
     def run_probe(self, board):
+        self.probe_runs += 1
         return self.prober(board, self)
 
     def ports(self):

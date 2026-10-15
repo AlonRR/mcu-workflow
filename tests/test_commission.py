@@ -326,3 +326,25 @@ def test_rig_pins_do_not_share_the_dut_pin_namespace():
     }
     _errors, warnings = v.semantic_checks(board)
     assert not [w for w in warnings if "more than one role" in w], warnings
+
+
+def test_hil_releases_the_boot_line_after_its_stimulus():
+    # gpio.set 1 leaves the satellite DRIVING the DUT's BOOT line high; with a
+    # real wire, pressing BOOT then shorts that output to ground. hil must end
+    # by releasing it (gpio.get -> input), as commission does.
+    spec = importlib.util.spec_from_file_location(
+        "mcuflow_wb_release_test", ROOT / "src" / "workbench" / "workbench.py"
+    )
+    wb = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(wb)
+    from sim.hil import run_hil
+
+    base, srv = wb.serve_inprocess("sim")
+    try:
+        state = wb.Handler.satellite.t.state
+        rep = run_hil(str(C3_PATH), workbench_base=base)
+    finally:
+        srv.shutdown()
+    pin = C3["rig"]["dut_boot_gpio"]
+    assert any(s["step"] == "gpio_stimulus" and s["ok"] for s in rep["steps"])
+    assert pin in state.inputs

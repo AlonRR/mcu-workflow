@@ -138,7 +138,7 @@ doctor`. Split by whether a verb is naturally request/response:
 | `flash` | direct | `--port`, `--sim` |
 | `test` | direct | pytest file (or board.yml with `--sim`) |
 | `hil` | direct | `--satellite`, `--workbench`, `--sim` |
-| `commission` | direct | `--port` (required on hardware), `--satellite`, `--workbench`, `--sim`; added 15 Oct 2026, after §12.1's list |
+| `commission` | direct | `--port` (required on hardware), `--satellite`, `--workbench`, `--probe`, `--sim`; added 15 Oct 2026, after §12.1's list |
 | `run` | direct | composite; returns the per-stage structured result |
 | `doctor` | direct | preflight; `--satellite` optional |
 | `ports` | direct | backed by `ports --json` (the structured snapshot) |

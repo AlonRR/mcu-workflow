@@ -364,8 +364,9 @@ emit malformed payloads — which §9's instrument list does not currently offer
 *Status (15 Oct 2026):* (a) is built as far as it can go without code on the DUT:
 `mcuflow commission` checks the chip and flash size (esptool), the satellite's
 capabilities against `test.needs`, and the BOOT and EN wires by their observable
-effect (ROM boot mode, USB port drop). `pins:`/`devices:` are reported as
-*unverified* until a DUT-side probe exists. Building it exposed a contract bug
+effect (ROM boot mode, USB port drop). With `--probe`, a probe image generated
+from `board.yml` checks each I2C device by address; plain GPIO pins, SPI, UART
+and gpio/adc devices stay *unverified*, each listed with its reason. Building it exposed a contract bug
 the gate is meant to catch: `rig.dut_*_gpio` number **satellite** pins, and
 `board-c3.yml` had used the DUT's own strap number.
 

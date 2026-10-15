@@ -871,6 +871,46 @@ def verb_debug(args):
     return dbg.main(fwd)
 
 
+def _probe_runner(port):
+    """The real bench's prober for `commission --probe`: build the probe image
+    (once per fingerprint, under build-out/_probe/), flash it, and capture its
+    report. The CLI owns this because it owns the toolchain choice: a native
+    idf.py if present, else the platform's cage image."""
+
+    def run(board, bench):
+        pf = _load_sibling("mcuflow_probe_fw", "commission/probe_fw.py")
+        meta = board.get("meta") or {}
+        chip = meta.get("chip") or "esp32c3"
+        adapter = _adapter(meta.get("platform") or "esp32")
+        name = pf.safe_name(meta.get("project", "project")) + "-" + pf.fingerprint(board)
+        out = REPO_ROOT / "build-out" / "_probe" / name
+        if not (out / "build" / "flasher_args.json").exists():
+            pf.write_project(board, out)
+            build_cmd = adapter.build_cmd(str(out))
+            image = _cage_image(adapter)
+            if shutil.which(build_cmd[0]) is not None:
+                rc, o, e = _run([build_cmd[0], "-C", str(out), "set-target", chip])
+                if rc == EXIT_OK:
+                    rc, o, e = _run(build_cmd)
+            elif _cage_available(image):
+                rc, o, e = _run(adapter.cage_build_cmd(str(out), chip, image))
+            else:
+                raise RuntimeError(
+                    "no ESP-IDF to build the probe image: install idf.py, or start Docker "
+                    "with the cage image (`mcuflow doctor --fix`)"
+                )
+            if rc != EXIT_OK:
+                tail = " | ".join((o + e).strip().splitlines()[-5:])
+                raise RuntimeError("probe image build failed in " + str(out) + ": " + tail)
+        rc, o, e = _run(adapter.host_flash_cmd(str(out), port, chip, sys.executable))
+        if rc != EXIT_OK:
+            tail = " | ".join((o + e).strip().splitlines()[-3:])
+            raise RuntimeError("flashing the probe image failed: " + tail)
+        return bench.reset_capture(seconds=15, until=pf.DONE_LINE)
+
+    return run
+
+
 def verb_commission(args):
     """Assert the bench matches board.yml before any test runs (architecture §13).
 
@@ -892,7 +932,7 @@ def verb_commission(args):
     if args.sim:
         from sim.bench import SimBench
 
-        bench = SimBench(board)
+        bench = SimBench(board, probe=args.probe)
     else:
         usage = None
         if not args.port:
@@ -923,6 +963,7 @@ def verb_commission(args):
             sat=sat,
             sat_port=None if args.workbench else args.satellite,
             sat_error=sat_error,
+            prober=_probe_runner(args.port) if args.probe else None,
         )
     rep = cm.commission(board, bench)
     rc = EXIT_OK if rep["ok"] else EXIT_FAIL
@@ -1563,6 +1604,12 @@ def build_parser():
     )
     cmn.add_argument(
         "--workbench", default=None, help="base URL of a running workbench holding the satellite"
+    )
+    cmn.add_argument(
+        "--probe",
+        action="store_true",
+        help="build and flash a probe image from board.yml that checks the I2C devices "
+        "(the DUT is left running the probe, not its app)",
     )
     cmn.set_defaults(func=verb_commission)
 

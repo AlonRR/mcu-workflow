@@ -92,9 +92,8 @@ project is now an installable `pyproject.toml` package with `mcuflow` on PATH.
 What's left:
 
 0. **Finish the commissioning gate** (architecture §13). `mcuflow commission`
-   exists (15 Oct 2026, below); still to do: run it on the two C3s, and add a
-   DUT-side probe so `pins:`/`devices:` are verified rather than reported
-   unverified. Then §13's other two: a real test-case library behind
+   and its `--probe` image exist (15 Oct 2026, below); still to do: run both on
+   the two C3s. Then §13's other two: a real test-case library behind
    `hil-test`, and the tier-assignment rule.
 1. **Fix on-silicon BLE.** `/api/ble/scan` works in the simulator but the NimBLE
    observer resets the C3 on real hardware — needs on-device `idf.py monitor`

@@ -17,11 +17,13 @@ tells them apart. The satellite is the real driver over the satellite emulator.
 
 from __future__ import annotations
 
+import json
 import os as _os
 import re
 import sys as _sys
 
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from commission.probe_fw import MARK, PROBE_FW, probe_plan, safe_name
 from satellite.host.satellite_driver import Satellite
 from satellite.host.sim import SimSatelliteTransport, SimState
 
@@ -53,6 +55,9 @@ class SimBench:
         usb_reset_frees_loader=True,
         rom_silent=False,
         dut_present=True,
+        probe=False,
+        i2c_present=None,
+        probe_hangs=False,
         dut_port="SIM-DUT",
         sat_port="SIM-SAT",
     ):
@@ -68,6 +73,12 @@ class SimBench:
         self.usb_reset_frees_loader = usb_reset_frees_loader
         self.rom_silent = rom_silent  # every reset prints nothing readable
         self.recoveries = 0
+        # The probe image (commission --probe): which I2C addresses answer on
+        # each bus ({bus: [addr]}); None = every device board.yml declares.
+        self.probe_enabled = probe
+        self.i2c_present = i2c_present
+        self.probe_hangs = probe_hangs
+        self.probe_runs = 0
         self.dut_present = dut_present
         self.chip = chip or _chip_description(meta.get("chip"))
         self.flash = flash or _declared_flash(board) or "4MB"
@@ -104,7 +115,55 @@ class SimBench:
         self.mode = "download" if low else "flash"
         return "Hard resetting via RTS pin...\n"
 
-    def reset_capture(self):
+    def run_probe(self, board):
+        """Emulate the probe image's console output (probe_fw.py) on this bench."""
+        self.probe_runs += 1
+        plan = probe_plan(board)
+        present = self.i2c_present
+        if present is None:
+            present = {b["bus"]: [d["addr"] for d in b["devices"]] for b in plan["i2c"]}
+        project = safe_name((board.get("meta") or {}).get("project", "project"))
+
+        def line(obj):
+            return MARK + json.dumps(obj, separators=(",", ":"))
+
+        out = [
+            "ESP-ROM:esp32c3-api1-20210207",
+            line({"kind": "start", "fw": PROBE_FW, "project": project}),
+        ]
+        for b in plan["i2c"]:
+            bus = safe_name(b["bus"])
+            found = sorted(present.get(b["bus"], []))
+            idle = 1 if found else 0  # a breakout brings the pull-ups
+            out.append(
+                line(
+                    {
+                        "kind": "i2c_bus",
+                        "bus": bus,
+                        "sda_idle": idle,
+                        "scl_idle": idle,
+                        "error": None,
+                    }
+                )
+            )
+            for d in b["devices"]:
+                result = "ack" if d["addr"] in found else "ESP_ERR_NOT_FOUND"
+                out.append(
+                    line(
+                        {
+                            "kind": "i2c_device",
+                            "bus": bus,
+                            "device": safe_name(d["name"]),
+                            "addr": d["addr"],
+                            "result": result,
+                        }
+                    )
+                )
+            out.append(line({"kind": "i2c_scan", "bus": bus, "found": found}))
+        out.append(line({"kind": "done"}))
+        return out[:3] if self.probe_hangs else out
+
+    def reset_capture(self, seconds=None, until=None):
         if self.mode == "download" and not self.usb_reset_frees_loader:
             return []
         low = self.boot_stuck_low or self._driven_low(self.boot_wire)

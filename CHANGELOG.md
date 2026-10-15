@@ -15,6 +15,14 @@ All notable changes are documented here. The format follows
   DUT's USB port dropping while EN is held low). `pins:`/`devices:` are
   reported as unverified. Real hardware needs an explicit `--port`. Also an MCP
   tool, with `--sim` against a simulated bench (`src/sim/bench.py`).
+- `mcuflow commission --probe`: builds a probe image from `board.yml`
+  (`src/commission/probe_fw.py`; cached per fingerprint under
+  `build-out/_probe/`), flashes it to the DUT, and reports per I2C device
+  whether it answers at its declared address, with a bus scan naming any
+  address that did. Pins and devices it cannot observe (plain GPIO, SPI, UART,
+  gpio/adc devices) are listed one by one as unverified, each with its reason.
+  It never flashes when the chip check failed. The DUT is left running the
+  probe image.
 
 ### Changed
 - `mcuflow run` on real hardware now requires `--port`. It used to auto-detect

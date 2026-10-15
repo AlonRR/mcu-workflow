@@ -20,7 +20,8 @@ real version.
   build/flash/test/hil/commission/run with no toolchain or hardware.
 - `mcuflow commission` asserts the bench matches `board.yml` before tests run
   (chip, flash size, satellite capabilities, and the BOOT/EN wires by their
-  observable effect). `rig.dut_boot_gpio` / `rig.dut_reset_gpio` are
+  observable effect); `--probe` also flashes a probe image generated from
+  `board.yml` that checks each I2C device answers. `rig.dut_boot_gpio` / `rig.dut_reset_gpio` are
   **satellite** pin numbers; `board-c3.yml` declares the runbook's wiring (2, 3).
 - C3 DUT config: `examples/board-c3.yml` (LED=GPIO8 active-low,
   BOOT=GPIO9, native USB, 4MB). Scaffolds chip-correct (`set-target esp32c3`).

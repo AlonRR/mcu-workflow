@@ -18,8 +18,12 @@ observe that differs between "bench right" and "bench wrong":
                 with esptool's hard reset, never left there silently
   reset_line    the satellite holds rig.dut_reset_gpio low and the DUT's USB
                 port disappears; released, it comes back
-  pins_devices  pins:/devices: need code on the DUT to probe - reported as
-                "unverified", never as passed
+  pins_devices  without --probe: pins:/devices: need code on the DUT, so they
+                are reported "unverified", never as passed
+  device:<name> with --probe: a probe image generated from board.yml
+                (probe_fw.py) is flashed and reports whether each I2C device
+                answers at its address; pins:/devices: it cannot observe are
+                listed one by one as unverified, each with its reason
 
 Each check is pass | fail | skip (not applicable to this board) | unverified
 (applicable but not checked). The gate passes when nothing fails.
@@ -38,6 +42,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from commission import probe_fw  # noqa: E402
 
 # test.needs items that only the satellite provides (the DUT's own serial and
 # the workbench's MQTT/OTA/UDP-log don't need one).
@@ -392,8 +399,128 @@ def _check_pins_devices(board):
     return _result(
         "pins_devices",
         "unverified",
-        "; ".join(listed) + " - probing these needs code on the DUT (not built yet)",
+        "; ".join(listed) + " - probing these needs code on the DUT: run with --probe to "
+        "flash a probe image that checks the I2C devices",
     )
+
+
+def _hexaddr(a):
+    return "0x%02x" % a
+
+
+def _check_devices_by_probe(board, bench, chip_ok):
+    """Flash the probe image and turn its findings into one check per device."""
+    plan = probe_fw.probe_plan(board)
+    unprobed = [
+        _result(key.replace(".", ":", 1), "unverified", reason) for key, reason in plan["unprobed"]
+    ]
+    targets = [(b, d) for b in plan["i2c"] for d in b["devices"]]
+    if not targets:
+        return unprobed
+
+    def not_run(why):
+        return [
+            _result("device:" + d["name"], "unverified", "not run: " + why) for _b, d in targets
+        ]
+
+    if not chip_ok:
+        # The image is built for meta.chip; never flash it onto anything else.
+        return not_run("the probe image is only flashed onto the chip board.yml names") + unprobed
+    try:
+        lines = bench.run_probe(board)
+    except Exception as e:
+        return (
+            [_result("probe", "fail", "probe image did not run: " + str(e))]
+            + not_run("the probe image did not run")
+            + unprobed
+        )
+    found = probe_fw.parse(lines)
+    start = next((f for f in found if f.get("kind") == "start"), None)
+    if not any(f.get("kind") == "done" for f in found):
+        tail = " | ".join(ln.strip() for ln in (lines or [])[-3:] if ln.strip()) or "nothing"
+        return (
+            [
+                _result(
+                    "probe",
+                    "fail",
+                    "the probe image did not report done ("
+                    + ("it started" if start else "no start line")
+                    + "); last output: "
+                    + tail,
+                )
+            ]
+            + not_run("the probe did not finish")
+            + unprobed
+        )
+    fw = (start or {}).get("fw")
+    if fw != probe_fw.PROBE_FW:
+        return (
+            [
+                _result(
+                    "probe",
+                    "fail",
+                    "expected probe image " + probe_fw.PROBE_FW + ", got " + str(fw),
+                )
+            ]
+            + not_run("an unexpected image answered")
+            + unprobed
+        )
+    checks = [_result("probe", "pass", "probe image " + fw + " ran to completion")]
+    for b, d in targets:
+        bus = probe_fw.safe_name(b["bus"])
+        name = probe_fw.safe_name(d["name"])
+        where = (
+            d["part"]
+            + " at "
+            + _hexaddr(d["addr"])
+            + " on "
+            + b["bus"]
+            + " (SDA GPIO"
+            + str(b["sda"])
+            + ", SCL GPIO"
+            + str(b["scl"])
+            + ")"
+        )
+
+        def first(kind, **match):
+            return next(
+                (
+                    f
+                    for f in found
+                    if f.get("kind") == kind and all(f.get(k) == v for k, v in match.items())
+                ),
+                None,
+            )
+
+        dev = first("i2c_device", bus=bus, device=name)
+        busf = first("i2c_bus", bus=bus) or {}
+        scan = first("i2c_scan", bus=bus)
+        if dev is None:
+            why = "no result for it"
+            if busf.get("error"):
+                why += " - the bus did not start: " + str(busf["error"])
+            checks.append(_result("device:" + d["name"], "fail", where + ": " + why))
+            continue
+        if dev.get("result") == "ack":
+            checks.append(_result("device:" + d["name"], "pass", where + ": answered"))
+            continue
+        hint = ""
+        if scan is not None:
+            addrs = scan.get("found") or []
+            if addrs:
+                hint = "; the bus scan found " + ", ".join(_hexaddr(a) for a in addrs)
+                hint += " - check the address"
+            else:
+                hint = "; the bus scan found nothing - check power, wiring and pull-ups"
+                idle = [
+                    s.upper() + " idles low" for s in ("sda", "scl") if busf.get(s + "_idle") == 0
+                ]
+                if idle:
+                    hint += " (" + ", ".join(idle) + ": no external pull-up?)"
+        checks.append(
+            _result("device:" + d["name"], "fail", where + ": " + str(dev.get("result")) + hint)
+        )
+    return checks + unprobed
 
 
 def commission(board, bench):
@@ -418,7 +545,12 @@ def commission(board, bench):
         pre = _line_precondition(name, key, board, caps, dut_ok)
         checks.append(pre if pre is not None else fn(board, bench))
 
-    checks.append(_check_pins_devices(board))
+    if getattr(bench, "probe_enabled", False):
+        chip = next(c for c in checks if c["check"] == "dut_chip")
+        chip_ok = dut_ok and chip["status"] == "pass"
+        checks += _check_devices_by_probe(board, bench, chip_ok)
+    else:
+        checks.append(_check_pins_devices(board))
 
     counts = {s: sum(1 for c in checks if c["status"] == s) for s in _STATUSES}
     return {
@@ -481,12 +613,19 @@ class SerialBench:
     poll_s = 0.25
     capture_s = 3.0  # ROM banner capture window after a reset
 
-    def __init__(self, dut_port, sat=None, sat_port=None, sat_error=None, python=None):
+    def __init__(self, dut_port, sat=None, sat_port=None, sat_error=None, python=None, prober=None):
         self.dut_port = dut_port
         self.sat = sat
         self.sat_port = sat_port
         self.sat_error = sat_error
         self.python = python or sys.executable
+        # prober(board, bench) -> lines: builds and flashes the probe image, then
+        # captures its output. The CLI supplies it (it owns the toolchain).
+        self.prober = prober
+        self.probe_enabled = prober is not None
+
+    def run_probe(self, board):
+        return self.prober(board, self)
 
     def ports(self):
         from serial.tools import list_ports
@@ -508,10 +647,11 @@ class SerialBench:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         return (proc.stdout or "") + (proc.stderr or "")
 
-    def reset_capture(self):
+    def reset_capture(self, seconds=None, until=None):
         """Reset the DUT over its USB-Serial/JTAG (DTR low leaves the BOOT strap
         alone, an RTS pulse is EN) and return what it prints. The strap is then
-        whatever the wire holds it at - which is the point."""
+        whatever the wire holds it at - which is the point. Captures for
+        `seconds` (default capture_s), stopping early once `until` is seen."""
         import serial
 
         deadline = time.monotonic() + 10.0
@@ -529,9 +669,12 @@ class SerialBench:
             time.sleep(0.2)  # esptool's hold for USB-JTAG chips
             ser.rts = False
             buf = b""
-            end = time.monotonic() + self.capture_s
+            end = time.monotonic() + (seconds or self.capture_s)
+            stop = until.encode("utf-8") if until else None
             while time.monotonic() < end:
                 buf += ser.read(512)
+                if stop and stop in buf:
+                    break
         finally:
             ser.close()
         return buf.decode("utf-8", "replace").splitlines()

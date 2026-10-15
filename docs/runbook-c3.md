@@ -111,6 +111,13 @@ capabilities, holds the BOOT line low and expects the DUT's ROM to report
 expecting the DUT's USB port to drop and return. It resets the DUT, so it needs
 `--port` and never guesses one: a connected ESP32 may belong to something else.
 
+Add `--probe` to check the devices too. It builds a probe image from
+`board.yml` (in the cage, or with a native ESP-IDF; cached under
+`build-out/_probe/`), flashes it to the DUT, and reports for each I2C device
+whether it answers at its address. A bus scan names any address that did
+answer, which catches a BME280 strapped to 0x77 when the file says 0x76. The
+DUT is left running the probe image, so flash the app next (`mcuflow run` does).
+
 C3 gotchas baked into `board-c3.yml`: GPIO8 = onboard LED (active-LOW), GPIO9 =
 BOOT, buses kept off those pins. The native USB port re-enumerates on reset, so
 expect the COM number to briefly drop/return around a flash.
@@ -186,6 +193,7 @@ All five stages are green on real silicon (proven on the two C3s — see
   esptool's `Detected flash size:` line follow their documented formats but were
   not captured. Its BOOT/EN wire checks have **not yet run on the two C3s**: do
   that before trusting a `gpio_stimulus` PASS, which has no readback.
+  The `--probe` image is likewise checked only in simulation so far.
 - **RF-proximity gotcha:** two PCB-antenna C3s sitting inches apart desense each
   other and the join loops at 802.11 auth (`reason=2`). Keep them ~0.5 m apart. If
   a join ever flaps, check board spacing first.

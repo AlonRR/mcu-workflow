@@ -33,6 +33,8 @@ test:
   needs: [serial, wifi]                      # 'wifi' routes to a host with a satellite
   boot_string: "app_main started"
 
-rig:
-  dut_boot_gpio: 9          # satellite drives this LOW + pulses EN to force download mode
+rig:                        # SATELLITE pins wired to the DUT (docs/runbook-c3.md section 3);
+                            # `mcuflow commission` checks each wire actually does its job
+  dut_boot_gpio: 2          # satellite GPIO2 -> DUT GPIO9 (BOOT strap): low at reset = download mode
+  dut_reset_gpio: 3         # satellite GPIO3 -> DUT EN: held low = reset
   satellite: required       # this suite needs the ESP32 satellite for the wifi test

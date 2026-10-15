@@ -85,10 +85,10 @@ def _collect_pin_uses(data):
         for role, pin in (dev.get("pins") or {}).items():
             claim(pin, "devices." + dname + ".pins." + role)
 
-    rig = data.get("rig") or {}
-    for key in ("dut_reset_gpio", "dut_boot_gpio"):
-        if key in rig:
-            claim(rig[key], "rig." + key)
+    # rig.dut_*_gpio are deliberately not claimed: they number SATELLITE pins
+    # (the satellite drives the DUT's BOOT/EN through them), so they share no
+    # namespace with the DUT pins above - satellite GPIO2 and DUT GPIO2 are
+    # different wires.
 
     return uses
 

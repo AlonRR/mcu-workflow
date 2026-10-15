@@ -34,6 +34,10 @@ class SimState:
     def __init__(self):
         self.ap = None  # dict(ssid, password, channel, ip) when up
         self.gpio = {}  # pin -> 0/1
+        # Pins last read with gpio.get: the firmware resets the pin to an input
+        # there, so the satellite stops driving the line (it floats to whatever
+        # pulls it - the DUT's strap pull-up). gpio.set drives it again.
+        self.inputs = set()
         self.siggen = None  # dict(pin, freq, duty) when a PWM is running
         # A couple of fake BLE advertisers so ble.scan returns something.
         self.ble_devices = [
@@ -102,11 +106,13 @@ class SimSatelliteTransport:
             if pin is None or pin < 0:
                 return {"ok": False, "error": "missing pin"}
             s.gpio[pin] = 1 if req.get("value") else 0
+            s.inputs.discard(pin)
             return {"ok": True}
         if cmd == "gpio.get":
             pin = req.get("pin", -1)
             if pin is None or pin < 0:
                 return {"ok": False, "error": "missing pin"}
+            s.inputs.add(pin)
             return {"ok": True, "value": s.gpio.get(pin, 0)}
         if cmd == "siggen.start":
             pin = req.get("pin", -1)

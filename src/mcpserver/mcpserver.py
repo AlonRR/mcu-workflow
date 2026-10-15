@@ -38,12 +38,13 @@ _GENERIC_VERBS = [
     "monitor",
     "test",
     "hil",
+    "commission",
     "run",
     "doctor",
     "env",
 ]
 # Verbs for which the global --sim flag is meaningful and worth exposing.
-_SIM_VERBS = {"build", "flash", "test", "hil", "run"}
+_SIM_VERBS = {"build", "flash", "test", "hil", "commission", "run"}
 # Args dropped from a verb's tool: doctor's --fix/--uninstall/--purge install or
 # remove system state (Docker, usbipd, the ~15GB cage image, the .venv) - not
 # something a tool-call should trigger silently. The read-only preflight stays.

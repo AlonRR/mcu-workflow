@@ -56,6 +56,6 @@ test:                      # which instruments the HIL suite needs -> routing
   boot_string: "app_main started"
 
 rig:                       # optional physical wiring for stimulus / recovery
-  dut_reset_gpio: 17
-  dut_boot_gpio: 18
+  dut_reset_gpio: 17       # SATELLITE pins: GPIO17 -> DUT EN,
+  dut_boot_gpio: 18        #   GPIO18 -> DUT BOOT strap (GPIO0 on an S3)
   satellite: required      # required | optional | none

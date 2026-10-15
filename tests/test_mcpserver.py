@@ -43,6 +43,7 @@ def test_tools_cover_the_expected_verbs():
         "monitor",
         "test",
         "hil",
+        "commission",
         "run",
         "doctor",
         "ports",
@@ -71,7 +72,7 @@ def test_monitor_tool_requires_seconds():
 
 def test_sim_verbs_expose_sim_others_do_not():
     tools = srv.build_tools()
-    for verb in ("build", "flash", "test", "hil", "run"):
+    for verb in ("build", "flash", "test", "hil", "commission", "run"):
         assert tools[verb]["schema"]["properties"].get("sim", {}).get("type") == "boolean"
     assert "sim" not in tools["validate"]["schema"]["properties"]
 

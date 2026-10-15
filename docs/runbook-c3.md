@@ -92,9 +92,24 @@ air.
   GND               <------------->    GND                     # common ground (required)
 ```
 
-`board-c3.yml` already declares `rig.dut_boot_gpio: 9` and `rig.satellite:
-required`. Pick any free satellite GPIOs for the two stimulus lines (above uses
-2 and 3). **Common ground is mandatory** or the logic levels are meaningless.
+`board-c3.yml` declares exactly this wiring: `rig.dut_boot_gpio: 2` and
+`rig.dut_reset_gpio: 3`, plus `rig.satellite: required`. The `rig.*_gpio`
+numbers are **satellite** pins (the satellite drives the DUT's lines through
+them), never the DUT's own pin numbers. To use other free satellite GPIOs,
+change the wires and those two numbers together. **Common ground is mandatory**
+or the logic levels are meaningless.
+
+Then prove the bench matches, before any test runs:
+
+```
+mcuflow commission examples/board-c3.yml --port <DUT_PORT> --satellite <SAT_PORT>
+```
+
+It reads the chip and flash size with esptool, checks the satellite's
+capabilities, holds the BOOT line low and expects the DUT's ROM to report
+`DOWNLOAD` at reset (and a normal flash boot once released), and holds EN low
+expecting the DUT's USB port to drop and return. It resets the DUT, so it needs
+`--port` and never guesses one: a connected ESP32 may belong to something else.
 
 C3 gotchas baked into `board-c3.yml`: GPIO8 = onboard LED (active-LOW), GPIO9 =
 BOOT, buses kept off those pins. The native USB port re-enumerates on reset, so

@@ -802,6 +802,7 @@ _SIBLINGS = {
     "bridge": ("mcuflow_serialbridge", "serialbridge/serialbridge.py"),
     "debug": ("mcuflow_debugger", "debugger/debugger.py"),
     "mcp": ("mcuflow_mcpserver", "mcpserver/mcpserver.py"),
+    "commission": ("mcuflow_commission", "commission/commission.py"),
 }
 
 
@@ -859,6 +860,77 @@ def verb_debug(args):
     dbg = _sibling("debug")
     fwd = ["--chip", args.chip] + (["--board", args.board] if args.board else [])
     return dbg.main(fwd)
+
+
+def verb_commission(args):
+    """Assert the bench matches board.yml before any test runs (architecture §13).
+
+    Real hardware needs an explicit --port: the checks reset the DUT, and a
+    connected ESP32 is not necessarily the DUT (another project's board can sit
+    on the same USB), so this verb never auto-picks one. --sim runs the same
+    checks against a simulated bench wired as board.yml declares.
+    """
+    board = _read_board(args.board)
+    if not board.get("meta"):
+        detail = "could not read a board.yml with a meta section from " + str(args.board)
+        return emit(
+            {"verb": "commission", "ok": False, "exit_code": EXIT_USAGE, "detail": detail},
+            args.json,
+            ["x " + detail],
+        )
+    cm = _sibling("commission")
+    sys.path.insert(0, str(ROOT))
+    if args.sim:
+        from sim.bench import SimBench
+
+        bench = SimBench(board)
+    else:
+        usage = None
+        if not args.port:
+            usage = (
+                "commission resets the DUT, so it needs --port: a connected ESP32 is not "
+                "necessarily the DUT (see `mcuflow ports`)"
+            )
+        elif args.satellite and args.satellite == args.port:
+            usage = "--satellite and --port are the same port (" + args.port + ")"
+        if usage:
+            return emit(
+                {"verb": "commission", "ok": False, "exit_code": EXIT_USAGE, "detail": usage},
+                args.json,
+                ["x " + usage],
+            )
+        sat, sat_error = None, None
+        if args.workbench:
+            sat = cm.WorkbenchSatellite(args.workbench)
+        elif args.satellite:
+            try:
+                from satellite.host.satellite_driver import Satellite
+
+                sat = Satellite.open_serial(args.satellite)
+            except Exception as e:
+                sat_error = "could not open " + args.satellite + ": " + str(e)
+        bench = cm.SerialBench(
+            args.port,
+            sat=sat,
+            sat_port=None if args.workbench else args.satellite,
+            sat_error=sat_error,
+        )
+    rep = cm.commission(board, bench)
+    rc = EXIT_OK if rep["ok"] else EXIT_FAIL
+    width = max(len(c["check"]) for c in rep["checks"])
+    lines = ["mcuflow commission " + ("[sim] " if args.sim else "") + str(args.board) + ":"]
+    for c in rep["checks"]:
+        tag = ("[" + c["status"] + "]").ljust(len("[unverified]"))
+        lines.append("  " + tag + " " + c["check"].ljust(width) + "  " + c["detail"])
+    n = rep["counts"]
+    lines.append(
+        str(rep["total"])
+        + " checks: "
+        + ", ".join(str(n[s]) + " " + s for s in ("pass", "fail", "skip", "unverified"))
+    )
+    lines.append("RESULT: " + ("PASS" if rep["ok"] else "FAIL"))
+    out = {"verb": "commission", "ok": rep["ok"], "exit_code": rc, "sim": args.sim, "report": rep}
+    return emit(out, args.json, lines)
 
 
 def _list_serial_ports():
@@ -1471,6 +1543,19 @@ def build_parser():
         "--workbench", default=None, help="base URL of a running workbench (real hardware)"
     )
     h.set_defaults(func=verb_hil)
+
+    cmn = sub.add_parser(
+        "commission", help="assert the bench matches board.yml (chip, flash, satellite, rig wires)"
+    )
+    cmn.add_argument("board", type=Path)
+    cmn.add_argument("--port", default=None, help="the DUT's serial port (required on hardware)")
+    cmn.add_argument(
+        "--satellite", default=None, help="the satellite's serial port (or use --workbench)"
+    )
+    cmn.add_argument(
+        "--workbench", default=None, help="base URL of a running workbench holding the satellite"
+    )
+    cmn.set_defaults(func=verb_commission)
 
     r = sub.add_parser("run", help="validate->scaffold->build->flash->hil")
     r.add_argument("board", type=Path)

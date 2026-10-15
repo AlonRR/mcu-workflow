@@ -156,8 +156,16 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "dut_reset_gpio": { "type": "integer", "minimum": 0 },
-        "dut_boot_gpio": { "type": "integer", "minimum": 0 },
+        "dut_reset_gpio": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "SATELLITE GPIO wired to the DUT's EN pin (held low = DUT in reset). A satellite pin number, not a DUT pin."
+        },
+        "dut_boot_gpio": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "SATELLITE GPIO wired to the DUT's BOOT strap (low at reset = download mode). A satellite pin number, not a DUT pin."
+        },
         "satellite": { "enum": ["required", "optional", "none"] }
       }
     }

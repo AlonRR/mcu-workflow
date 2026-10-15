@@ -265,7 +265,11 @@ def run_hil(
             a = _http(workbench_base, "/api/gpio/set", {"pin": boot_gpio, "value": 0})
             b = _http(workbench_base, "/api/gpio/set", {"pin": boot_gpio, "value": 1})
             record(
-                "gpio_stimulus", a.get("ok") and b.get("ok"), "toggled BOOT gpio " + str(boot_gpio)
+                "gpio_stimulus",
+                a.get("ok") and b.get("ok"),
+                "toggled satellite GPIO "
+                + str(boot_gpio)
+                + " (no readback here: `mcuflow commission` proves the wire)",
             )
     finally:
         # Teardown runs even when a step blew up mid-scenario, and is attempted

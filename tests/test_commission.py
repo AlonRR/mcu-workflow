@@ -191,9 +191,10 @@ def test_boot_strap_stuck_low_fails():
 
 
 def test_boot_line_recovers_a_dut_the_usb_reset_cannot_free():
-    # Measured 15 Oct 2026: from the ROM loader an RTS pulse printed nothing and
-    # left the chip there, while esptool's hard reset brought it back. The check
-    # must not leave the DUT in download mode when its control reset can't.
+    # Seen 15 Oct 2026 (with the esptool stub running in the loader): an RTS pulse
+    # printed nothing and left the chip there, while esptool's hard reset brought
+    # it back. The check must not leave the DUT in download mode when its control
+    # reset can't.
     bench = SimBench(C3, usb_reset_frees_loader=False)
     rep = cm.commission(C3, bench)
     assert statuses(rep)["boot_line"] == "pass", detail(rep, "boot_line")

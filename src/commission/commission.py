@@ -288,11 +288,13 @@ def _check_boot_line(board, bench):
 
     seen = "held low -> " + str(held) + ", released -> " + str(released)
     if released != "flash":
-        # The control reset should have put the DUT back in its app. From the ROM
-        # loader a USB RTS pulse can print nothing and leave the chip there
-        # (measured on a C3, 15 Oct 2026), while esptool's hard reset frees it -
-        # so recover, then read the control again. (Pulsing EN through
-        # rig.dut_reset_gpio would also work, independent of USB.)
+        # The control reset should have put the DUT back in its app. It may not:
+        # on a C3 on 15 Oct 2026, with the esptool stub running in the loader, a
+        # USB RTS pulse printed nothing and left the chip there, while esptool's
+        # hard reset freed it. (From the bare ROM loader, which this check is
+        # what puts the DUT in, it is unmeasured.) So recover, then read the
+        # control again. Pulsing EN through rig.dut_reset_gpio would also work,
+        # independent of USB.
         try:
             bench.recover()
             released = boot_mode(bench.reset_capture())

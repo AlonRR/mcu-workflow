@@ -62,9 +62,9 @@ class SimBench:
         self.boot_wire = rig.get("dut_boot_gpio") if boot_wire is _AS_DECLARED else boot_wire
         self.reset_wire = rig.get("dut_reset_gpio") if reset_wire is _AS_DECLARED else reset_wire
         self.boot_stuck_low = boot_stuck_low
-        # False models the C3 measured 15 Oct 2026: once in the ROM loader, a USB
-        # RTS reset printed nothing and left it there; only esptool's hard reset
-        # (recover) brought it back.
+        # False models what was seen on a C3 on 15 Oct 2026: in the loader (with
+        # the esptool stub running), a USB RTS reset printed nothing and left it
+        # there; only esptool's hard reset (recover) brought it back.
         self.usb_reset_frees_loader = usb_reset_frees_loader
         self.rom_silent = rom_silent  # every reset prints nothing readable
         self.recoveries = 0
